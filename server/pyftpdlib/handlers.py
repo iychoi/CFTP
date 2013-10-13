@@ -60,6 +60,7 @@ except ImportError:
 from pyftpdlib import __ver__
 from pyftpdlib.log import logger
 from pyftpdlib.filesystems import FilesystemError, AbstractedFS
+from pyftpdlib.ca import Chunk_Handler
 from pyftpdlib._compat import PY3, b, u, getcwdu, unicode, xrange, next
 from pyftpdlib.ioloop import AsyncChat, Connector, Acceptor, _DISCONNECTED
 from pyftpdlib.authorizers import (DummyAuthorizer, AuthenticationFailed,
@@ -121,6 +122,8 @@ proto_cmds = {
                   help='Syntax: REST <SP> offset (set file offset).'),
     'RETR' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: RETR <SP> file-name (retrieve a file).'),
+    'RRTR' : dict(perm='r', auth=True, arg=True,
+                  help='Syntax: RRTR <SP> file-name (retrieve a recipe of a file).'),
     'RMD'  : dict(perm='d', auth=True, arg=True,
                   help='Syntax: RMD <SP> dir-name (remove directory).'),
     'RNFR' : dict(perm='f', auth=True, arg=True,
@@ -1075,6 +1078,7 @@ class FTPHandler(AsyncChat):
     passive_dtp = PassiveDTP
     dtp_handler = DTPHandler
     abstracted_fs = AbstractedFS
+    chunk_handler = Chunk_Handler
     proto_cmds = proto_cmds
 
     # session attributes (explained in the docstring)
@@ -1102,6 +1106,7 @@ class FTPHandler(AsyncChat):
         # public session attributes
         self.server = server
         self.fs = None
+        self.ca = None
         self.authenticated = False
         self.username = ""
         self.password = ""
@@ -1468,6 +1473,10 @@ class FTPHandler(AsyncChat):
             if self.fs is not None:
                 self.fs.cmd_channel = None
                 self.fs = None
+
+            if self.ca is not None:
+                self.ca = None
+
             self.log("FTP session closed (disconnect).")
             # Having self.remote_ip not set means that no connection
             # actually took place, hence we're not interested in
@@ -2144,6 +2153,21 @@ class FTPHandler(AsyncChat):
         self.push_dtp_data(producer, isproducer=True, file=fd, cmd="RETR")
         return file
 
+    def ftp_RRTR(self, file):
+        """Retrieve the recipe of the specified file (transfer from the server to the
+        client).  On success return the file path else None.
+        """
+        try:
+            recipe = self.run_as_current_user(self.ca.get_hashes, file)
+        except (EnvironmentError, FilesystemError):
+            err = sys.exc_info()[1]
+            why = _strerror(err)
+            self.respond('550 %s.' % why)
+            return
+
+        self.push_dtp_data(recipe, isproducer=False, file=None, cmd="RRTR")
+        return file
+
     def ftp_STOR(self, file, mode='w'):
         """Store a file (transfer from the client to the server).
         On success return the file path, else None.
@@ -2410,6 +2434,7 @@ class FTPHandler(AsyncChat):
             self.attempted_logins = 0
 
             self.fs = self.abstracted_fs(home, self)
+            self.ca = self.chunk_handler()
             self.on_login(self.username)
 
     def ftp_REIN(self, line):
