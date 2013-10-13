@@ -88,6 +88,8 @@ proto_cmds = {
                   help='Syntax: FEAT (list all new features supported).'),
     'HELP' : dict(perm=None, auth=False, arg=None,
                   help='Syntax: HELP [<SP> cmd] (show help).'),
+    'HRTR' : dict(perm='r', auth=True, arg=True, 
+                  help='Syntax: HRTR <SP> hash (retrieve a chunk from a hash).'),
     'LIST' : dict(perm='l', auth=True, arg=None,
                   help='Syntax: LIST [<SP> path] (list files).'),
     'MDTM' : dict(perm='l', auth=True, arg=True,
@@ -2167,6 +2169,21 @@ class FTPHandler(AsyncChat):
 
         self.push_dtp_data(recipe, isproducer=False, file=None, cmd="RRTR")
         return file
+
+    def ftp_HRTR(self, hash):
+        """Retrieve the chunk data of the specified hash (transfer from the server to the
+        client).  On success return the chunk hash else None.
+        """
+        try:
+            chunk = self.run_as_current_user(self.ca.get_chunk, hash)
+        except (EnvironmentError, FilesystemError):
+            err = sys.exc_info()[1]
+            why = _strerror(err)
+            self.respond('550 %s.' % why)
+            return
+
+        self.push_dtp_data(chunk, isproducer=False, file=None, cmd="HRTR")
+        return hash
 
     def ftp_STOR(self, file, mode='w'):
         """Store a file (transfer from the client to the server).
