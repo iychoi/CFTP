@@ -61,6 +61,7 @@ from pyftpdlib import __ver__
 from pyftpdlib.log import logger
 from pyftpdlib.filesystems import FilesystemError, AbstractedFS
 from pyftpdlib.ca import Chunk_Handler
+from pyftpdlib.bytebuffer import ByteBuffer, BufferError
 from pyftpdlib._compat import PY3, b, u, getcwdu, unicode, xrange, next
 from pyftpdlib.ioloop import AsyncChat, Connector, Acceptor, _DISCONNECTED
 from pyftpdlib.authorizers import (DummyAuthorizer, AuthenticationFailed,
@@ -88,8 +89,6 @@ proto_cmds = {
                   help='Syntax: FEAT (list all new features supported).'),
     'HELP' : dict(perm=None, auth=False, arg=None,
                   help='Syntax: HELP [<SP> cmd] (show help).'),
-    'HRTR' : dict(perm='r', auth=True, arg=True, 
-                  help='Syntax: HRTR <SP> hash (retrieve a chunk from a hash).'),
     'LIST' : dict(perm='l', auth=True, arg=None,
                   help='Syntax: LIST [<SP> path] (list files).'),
     'MDTM' : dict(perm='l', auth=True, arg=True,
@@ -126,6 +125,8 @@ proto_cmds = {
                   help='Syntax: RETR <SP> file-name (retrieve a file).'),
     'RRTR' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: RRTR <SP> file-name (retrieve a recipe of a file).'),
+    'HRTR' : dict(perm='r', auth=True, arg=True,
+                  help='Syntax: RRTR <SP> hashes (retrieve chunks of hashes).'),
     'RMD'  : dict(perm='d', auth=True, arg=True,
                   help='Syntax: RMD <SP> dir-name (remove directory).'),
     'RNFR' : dict(perm='f', auth=True, arg=True,
@@ -1274,7 +1275,9 @@ class FTPHandler(AsyncChat):
         # Flush buffer if it gets too long (possible DoS attacks).
         # RFC-959 specifies that a 500 response could be given in
         # such cases
-        buflimit = 2048
+        #buflimit = 2048
+        #iychoi fix : buflimit increased
+        buflimit = 204800
         if self._in_buffer_len > buflimit:
             self.respond_w_warning('500 Command too long.')
             self._in_buffer = []
@@ -1391,6 +1394,9 @@ class FTPHandler(AsyncChat):
                         mode, arg = arg.split(' ', 1)
                         arg = self.fs.ftp2fs(arg)
                         kwargs = dict(mode=mode)
+                elif cmd == 'HRTR':
+                    # skip
+                    arg = arg
                 else:  # LIST, NLST, MLSD, MLST
                     arg = self.fs.ftp2fs(arg or self.fs.cwd)
 
@@ -2167,23 +2173,35 @@ class FTPHandler(AsyncChat):
             self.respond('550 %s.' % why)
             return
 
-        self.push_dtp_data(recipe, isproducer=False, file=None, cmd="RRTR")
+        recipe_string = ''.join(recipe)
+        recipe_bytes = bytearray.fromhex(recipe_string)
+        self.push_dtp_data(recipe_bytes, isproducer=False, file=None, cmd="RRTR")
         return file
 
-    def ftp_HRTR(self, hash):
-        """Retrieve the chunk data of the specified hash (transfer from the server to the
-        client).  On success return the chunk hash else None.
+    def ftp_HRTR(self, hashes):
+        """Retrieve chunks of the specified hashes (transfer from the server to the
+        client).  On success return the number of hashes else None.
         """
+        print "input : ",hashes
+        hash_arr = hashes.split(',')
+        num_hashes = len(hash_arr)
+        chunk_bytes = ByteBuffer()
+        chunk_bytes.clear()
         try:
-            chunk = self.run_as_current_user(self.ca.get_chunk, hash)
+            for x in range(0, num_hashes):
+                chunk = self.run_as_current_user(self.ca.get_chunk, hash_arr[x].strip())
+                if chunk == None:
+                    raise FilesystemError("No chunk '" + hash_arr[x] + "'")
+                chunk_bytes.pushBytes(chunk)
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
             why = _strerror(err)
             self.respond('550 %s.' % why)
             return
 
-        self.push_dtp_data(chunk, isproducer=False, file=None, cmd="HRTR")
-        return hash
+        byte_array = bytearray(chunk_bytes.toBytes())
+        self.push_dtp_data(byte_array, isproducer=False, file=None, cmd="HRTR")
+        return num_hashes
 
     def ftp_STOR(self, file, mode='w'):
         """Store a file (transfer from the client to the server).
