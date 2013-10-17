@@ -28,6 +28,15 @@ class Chunk_Handler (object):
             finally:
                 f.close
         return chunk
+
+    def has_chunk(self, chunk_hash):
+        self.cursor.execute('SELECT * FROM ' + self.table_name + 
+                            ' WHERE hashes LIKE ? OR hashes LIKE ? OR hashes LIKE ? OR hashes LIKE ?',
+                            ('%:' + chunk_hash + ':%', chunk_hash + ':%', '%:' + chunk_hash, chunk_hash))
+        row = self.cursor.fetchone()
+        if row != None:
+            return True
+        return False
     
     def get_hashes(self, filepath):
         t = () # tuple

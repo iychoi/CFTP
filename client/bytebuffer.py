@@ -11,8 +11,8 @@ class ByteBuffer(object):
     readBytes and readStruct remove the read data from the string buffer.
     '''
  
-    def __init__(self, bytes=[]):
-        self._bytes = bytes
+    def __init__(self):
+        self._bytes = []
 
     def clear(self):
         self._bytes = []

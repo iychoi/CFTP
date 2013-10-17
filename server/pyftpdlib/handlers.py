@@ -927,6 +927,31 @@ class ThrottledDTPHandler(_AsyncChatNewStyle, DTPHandler):
 
 # --- producers
 
+class ChunkProducer(object):
+    """Producer wrapper for chunk objects."""
+
+    def __init__(self, ca, chunk_hashes):
+        """Initialize the producer with a data_wrapper appropriate to TYPE.
+
+         - chunks: chunk array
+        """
+        self.ca = ca
+        self.chunk_hashes = chunk_hashes
+        self.index = 0
+        self._data_wrapper = None
+
+    def more(self):
+        """Attempt a chunk of data."""
+        if self.index < len(self.chunk_hashes):
+            try:
+                data = self.ca.get_chunk(self.chunk_hashes[self.index])
+                self.index += 1
+            except OSError:
+                err = sys.exc_info()[1]
+                raise _FileReadWriteError(err)
+            else:
+                return data
+        return None
 
 class FileProducer(object):
     """Producer wrapper for file[-like] objects."""
@@ -1396,7 +1421,7 @@ class FTPHandler(AsyncChat):
                         kwargs = dict(mode=mode)
                 elif cmd == 'HRTR':
                     # skip
-                    arg = arg
+                    pass
                 else:  # LIST, NLST, MLSD, MLST
                     arg = self.fs.ftp2fs(arg or self.fs.cwd)
 
@@ -2185,22 +2210,9 @@ class FTPHandler(AsyncChat):
         print "input : ",hashes
         hash_arr = hashes.split(',')
         num_hashes = len(hash_arr)
-        chunk_bytes = ByteBuffer()
-        chunk_bytes.clear()
-        try:
-            for x in range(0, num_hashes):
-                chunk = self.run_as_current_user(self.ca.get_chunk, hash_arr[x].strip())
-                if chunk == None:
-                    raise FilesystemError("No chunk '" + hash_arr[x] + "'")
-                chunk_bytes.pushBytes(chunk)
-        except (EnvironmentError, FilesystemError):
-            err = sys.exc_info()[1]
-            why = _strerror(err)
-            self.respond('550 %s.' % why)
-            return
 
-        byte_array = bytearray(chunk_bytes.toBytes())
-        self.push_dtp_data(byte_array, isproducer=False, file=None, cmd="HRTR")
+        producer = ChunkProducer(self.ca, hash_arr)
+        self.push_dtp_data(producer, isproducer=True, file=None, cmd="HRTR")
         return num_hashes
 
     def ftp_STOR(self, file, mode='w'):

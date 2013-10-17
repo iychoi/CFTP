@@ -27,18 +27,16 @@ def getbinary(ftp, filename, outfile=None):
 def getrecipe(ftp, filename):
     # fetch a binary buffer
     buffer = bytebuffer.ByteBuffer()
-    buffer.clear()
     ftp.retrbinary("RRTR " + filename, buffer.pushBytes)
-    return buffer.toBytes()
-
-def gethashstrings(recipe):
-    strs = []    
+    recipe = buffer.toBytes()
+    strs = []
     if len(recipe) % 20 != 0:
         print "length of recipe is not correct"
         return None
     
     for x in range(0, len(recipe) / 20):
-        strs += binascii.hexlify(bytearray(bytes[x * 20 : x * 20 + 20])),
+        strs += binascii.hexlify(bytearray(recipe[x * 20 : x * 20 + 20])),
+
     return strs
 
 def collectchunks(ftp, ca, hashes, outfile=None):
@@ -48,53 +46,49 @@ def collectchunks(ftp, ca, hashes, outfile=None):
     server_chunks = []
     chunks_num = len(hashes)
     req_hashes = ""
+    
+    # check server chunks
     for x in range(0, chunks_num):
-        #chunk = ca.get_chunk(hashes[x])
-        chunk = None
-        if chunk == None:
+        #hasLocal = ca.has_chunk(hashes[x])
+        hasLocal = False
+        if not hasLocal:
             print "read from server : ", hashes[x]
             server_chunks.append(x)
             if req_hashes != "":
                 req_hashes += ","
             req_hashes += hashes[x]
-        else:
-            print "read from local : ", hashes[x]
-            f = open('chunk_' + str(x), 'wb')
-            f.write(chunk)
-            f.close()
-
-    print "server chunks : ", server_chunks
+    
+    # request server chunks and store it as local temporary file
     if len(server_chunks) != 0:
-        buffer = bytebuffer.ByteBuffer()
-        buffer.clear()
-        ftp.retrbinary("HRTR " + req_hashes, buffer.pushBytes)
-        bufferrem = buffer.length
-        print "read size : ", bufferrem
-        x = 0
-        while bufferrem > 0:
-            chunksize = CHUNK_SIZE
-            if bufferrem < CHUNK_SIZE:
-                chunksize = bufferrem
-
-            print "chunk : ", x
-            f = open('chunk_' + str(server_chunks[x]), 'wb')
-            f.write(bytearray(buffer.readBytes(chunksize)))
-            f.close()
-            bufferrem -= chunksize
-            x += 1
+        f = open('/tmp/server_chunks', 'wb')
+        ftp.retrbinary("HRTR " + req_hashes, f.write)
+        f.close()
+    
+    # build file
+    if len(server_chunks) != 0:
+        f = open('/tmp/server_chunks', 'rb')
 
     for x in range(0, chunks_num):
-        filename = 'chunk_' + str(x)
-        shutil.copyfileobj(open(filename, 'rb'), outfile)
-        os.remove(filename)
+        chunk = None
+        if x in server_chunks:
+            chunk = f.read(CHUNK_SIZE)
+        else:
+            chunk = ca.get_chunk(hashes[x])
+        
+        outfile.write(chunk)
+
+    if len(server_chunks) != 0:
+        f.close()
+        os.remove('/tmp/server_chunks')
+
+
 
 ca = Chunk_Handler()
 ftp = cftplib.FTP()
 ftp.connect("localhost", 2121)
 ftp.login("user", "12345")
 
-bytes = getrecipe(ftp, "sample.dat")
-hashes = gethashstrings(bytes)
+hashes = getrecipe(ftp, "sample.dat")
 dest = open('sample.dat', 'wb')
 collectchunks(ftp, ca, hashes, dest)
 dest.close()
