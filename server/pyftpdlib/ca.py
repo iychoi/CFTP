@@ -50,3 +50,21 @@ class Chunk_Handler (object):
                 f.close
 
         return t
+
+    def get_merkle_hashes(self, filepath, tree_level):
+        
+        t = self.get_hashes(filepath)
+        no_of_hashes_to_return = pow(2, tree_level)
+       
+        if len(t) <= no_of_hashes_to_return:
+                return t
+        
+        group_size = len(t) / no_of_hashes_to_return;
+       
+        if group_size == 1:
+            return t
+       
+        list_of_hash_group = [ t[n:n + group_size] for n, item in enumerate(t) if n % group_size == 0 ]
+        merkle_hashes = [hashlib.sha1(":".join(item)).hexdigest() for n, item in enumerate(list_of_hash_group)]
+       
+        return tuple(merkle_hashes);
