@@ -145,6 +145,12 @@ proto_cmds = {
                   help='Syntax: STAT [<SP> path name] (server stats [list files]).'),
     'STOR' : dict(perm='w', auth=True, arg=True,
                   help='Syntax: STOR <SP> file-name (store a file).'),
+    'RSTR' : dict(perm='w', auth=True, arg=True,
+                  help='Syntax: RSTR <SP> hashes (check hashes not in the server).'),
+    'HSTR' : dict(perm='w', auth=True, arg=True,
+                  help='Syntax: HSTR <SP> file-name hashes (store hashes).'),
+    'BDRC' : dict(perm='w', auth=True, arg=True,
+                  help='Syntax: BDRC <SP> file-name hashes (build file from recipe).'),             
     'STOU' : dict(perm='w', auth=True, arg=None,
                   help='Syntax: STOU [<SP> file-name] (store a file with a unique name).'),
     'STRU' : dict(perm=None, auth=True, arg=True,
@@ -1419,7 +1425,7 @@ class FTPHandler(AsyncChat):
                         mode, arg = arg.split(' ', 1)
                         arg = self.fs.ftp2fs(arg)
                         kwargs = dict(mode=mode)
-                elif cmd == 'HRTR':
+                elif cmd in ('HRTR', 'RSTR', 'HSTR', 'BDRC'):
                     # skip
                     pass
                 else:  # LIST, NLST, MLSD, MLST
@@ -2190,6 +2196,7 @@ class FTPHandler(AsyncChat):
         """Retrieve the recipe of the specified file (transfer from the server to the
         client).  On success return the file path else None.
         """
+        #print file
         try:
             recipe = self.run_as_current_user(self.ca.get_hashes, file)
         except (EnvironmentError, FilesystemError):
@@ -2207,7 +2214,7 @@ class FTPHandler(AsyncChat):
         """Retrieve chunks of the specified hashes (transfer from the server to the
         client).  On success return the number of hashes else None.
         """
-        print "input : ",hashes
+        #print "input : ",hashes
         hash_arr = hashes.split(',')
         num_hashes = len(hash_arr)
 
@@ -2273,6 +2280,83 @@ class FTPHandler(AsyncChat):
             self._in_dtp_queue = (fd, cmd)
         return file
 
+    def ftp_RSTR(self, hashes):
+        """Retrieve hashes not in the server (transfer from the server to the
+        client).  On success return the file path else None.
+        """
+        #print "input : ",hashes
+        hash_arr = hashes.split(',')
+        num_hashes = len(hash_arr)
+        
+        nhash_arr = []
+        for x in range(0, num_hashes):
+            try:
+                hasHash = self.run_as_current_user(self.ca.has_chunk, hash_arr[x])
+                if not hasHash:
+                    nhash_arr += hash_arr[x]
+            except (EnvironmentError, FilesystemError):
+                err = sys.exc_info()[1]
+                why = _strerror(err)
+                self.respond('550 %s.' % why)
+                return
+
+        recipe_string = ''.join(nhash_arr)
+        print recipe_string
+
+        recipe_bytes = bytearray.fromhex(recipe_string)
+        self.push_dtp_data(recipe_bytes, isproducer=False, file=None, cmd="RSTR")
+        return num_hashes
+
+    def ftp_HSTR(self, file):
+        """Store hashes (transfer from the server to the
+        client).  On success return the file path else None.
+        """
+        try:
+            fd = self.run_as_current_user(self.fs.open, '/tmp/server_chunk_' + file, 'wb')
+        except (EnvironmentError, FilesystemError):
+            err = sys.exc_info()[1]
+            why = _strerror(err)
+            self.respond('550 %s.' %why)
+            return
+
+        if self.data_channel is not None:
+            resp = "Data connection already open. Transfer starting."
+            self.respond("125 " + resp)
+            self.data_channel.file_obj = fd
+            self.data_channel.enable_receiving(self._current_type, cmd="HSTR")
+        else:
+            resp = "File status okay. About to open data connection."
+            self.respond("150 " + resp)
+            self._in_dtp_queue = (fd, "HSTR")
+        return file
+
+    def ftp_BDRC(self, args):
+        """Build file (transfer from the server to the
+        client).  On success return the file path else None.
+        """
+        hash_arr = args.split(',')
+        file = hash_arr[0]
+        hash_arr = args[1:]
+        num_hashes = len(hash_arr)
+
+        self.run_as_current_user(self.ca.get_hashes, '/tmp/server_chunk_' + file)
+
+        try:
+            path = self.run_as_current_user(self.fs.ftp2fs, file)
+            fd = self.run_as_current_user(self.fs.open, path, 'wb')
+            for x in range(0, num_hashes):
+                chunk = self.run_as_current_user(self.ca.get_chunk, hash_arr[x])
+                if chunk:
+                    fd.write(chunk)
+            fd.close()
+        except (EnvironmentError, FilesystemError):
+            err = sys.exc_info()[1]
+            why = _strerror(err)
+            self.respond('550 %s.' % why)
+            return
+        
+        self.respond("200 FILE: %s" % file)
+        return file
 
     def ftp_STOU(self, line):
         """Store a file on the server with a unique name.

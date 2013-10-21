@@ -39,6 +39,29 @@ def getrecipe(ftp, filename):
 
     return strs
 
+def getserverhashes(ftp, ca, filename):
+    recipe = ca.get_hashes(filename)
+    strs = []
+    for x in recipe:
+        strs += ''.join(x),
+    #print strs
+
+    req_hashes = ""
+    for x in range(0, len(strs)):
+        if req_hashes != "":
+            req_hashes += ","
+        req_hashes += strs[x]
+
+    buffer = bytebuffer.ByteBuffer()
+    ftp.retrbinary("RSTR " + req_hashes, buffer.pushBytes)
+    nhashes = buffer.toBytes()
+    print nhashes
+    nhashes_strs = ""
+    for x in range(0, len(nhashes) / 20):
+        nhashes_strs += binascii.hexlify(bytearray(nhashes[x * 20 : x * 20 + 20])),
+
+    return nhashes_strs
+
 def collectchunks(ftp, ca, hashes, outfile=None):
     # get chunk data from hash
     if outfile is None:
@@ -81,14 +104,43 @@ def collectchunks(ftp, ca, hashes, outfile=None):
         f.close()
         os.remove('/tmp/server_chunks')
 
+def sendchunks(ftp, ca, hashes, file):
+    if len(hashes) == 0:
+        return
 
+    req_hashes = ""
+    for x in range(0, len(hashes)):
+        if req_hashes != "":
+            req_hashes += ","
+        req_hashes += hashes[x]
 
-ca = Chunk_Handler()
-ftp = cftplib.FTP()
-ftp.connect("localhost", 2121)
-ftp.login("user", "12345")
+    f = open('/tmp/server_chunks', 'wb')
+    for x in range(0, len(hashes)):
+        chunk = ca.get_chunk(hashes[x])
+        if chunk == None:
+            print "chunk is not in CA"
+            return
+        
+        f.write(bytearray.fromhex(hashes[x]))
+        f.write(chunk)
+    f.close()
 
-hashes = getrecipe(ftp, "sample.dat")
-dest = open('sample.dat', 'wb')
-collectchunks(ftp, ca, hashes, dest)
-dest.close()
+    f = open('/tmp/server_chunks', 'rb')
+    ftp.storbinary("HSTR " + file, f)
+    f.close()
+    os.remove('/tmp/server_chunks')
+
+def buildfile(ftp, ca, file):
+    recipe = ca.get_hashes(file)
+    strs = []
+    for x in recipe:
+        strs += ''.join(x),
+
+    req_hashes = ""
+    for x in range(0, len(strs)):
+        if req_hashes != "":
+            req_hashes += ","
+        req_hashes += strs[x]
+
+    ftp.voidcmd("BDRC " + file + "," + req_hashes)
+    
