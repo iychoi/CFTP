@@ -1,5 +1,7 @@
 import hashlib
 import sqlite3
+import os
+import time
 
 CHUNK_SIZE = 1024
  
@@ -11,7 +13,7 @@ class Chunk_Handler (object):
         self.db = sqlite3.connect('/tmp/caftp.sqlite')
         self.cursor = self.db.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table_name + 
-                            ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT)')
+                            ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER)')
         
     def get_chunk(self, chunk_hash):
         chunk = None
@@ -39,8 +41,11 @@ class Chunk_Handler (object):
         return False
     
     def get_hashes(self, filepath):
-        t = () # tuple
-        self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
+        
+        self.__validate_cache(filepath)
+        
+        t = ()  # tuple
+        self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ?', (filepath,))
         row = self.cursor.fetchone()
         if row != None:
             t = tuple(row[2].split(':'))
@@ -53,7 +58,8 @@ class Chunk_Handler (object):
                         break
                     t = t + (hashlib.sha1(chunk).hexdigest(),)
                 self.cursor.execute('INSERT INTO ' + self.table_name + 
-                                    '(filepath, hashes) VALUES (?,?)', (filepath, ":".join(t)))
+                                    '(filepath, hashes, last_modified, file_size) VALUES (?,?,?,?)',
+                                    (filepath, ":".join(t), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath)))
                 self.db.commit()
             finally:
                 f.close
@@ -77,3 +83,15 @@ class Chunk_Handler (object):
         merkle_hashes = [hashlib.sha1(":".join(item)).hexdigest() for n, item in enumerate(list_of_hash_group)]
        
         return tuple(merkle_hashes);
+    
+    def __validate_cache(self, filepath):
+        self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
+        row = self.cursor.fetchone()
+        
+        if row != None:
+            if os.path.exists(filepath) and row[3] == time.ctime(os.path.getmtime(filepath)) and row[4] == os.path.getsize(filepath):
+                return
+            else:
+                self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
+                self.db.commit()
+        
