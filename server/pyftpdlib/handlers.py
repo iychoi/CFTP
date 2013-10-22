@@ -2196,8 +2196,8 @@ class FTPHandler(AsyncChat):
         """Retrieve the recipe of the specified file (transfer from the server to the
         client).  On success return the file path else None.
         """
-        #print file
         try:
+            self.run_as_current_user(self.ca.build_cache, file)
             recipe = self.run_as_current_user(self.ca.get_hashes, file)
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
@@ -2214,10 +2214,10 @@ class FTPHandler(AsyncChat):
         """Retrieve chunks of the specified hashes (transfer from the server to the
         client).  On success return the number of hashes else None.
         """
-        #print "input : ",hashes
         hash_arr = hashes.split(',')
         num_hashes = len(hash_arr)
 
+        # need revalidate here
         producer = ChunkProducer(self.ca, hash_arr)
         self.push_dtp_data(producer, isproducer=True, file=None, cmd="HRTR")
         return num_hashes
@@ -2284,11 +2284,11 @@ class FTPHandler(AsyncChat):
         """Retrieve hashes not in the server (transfer from the server to the
         client).  On success return the file path else None.
         """
-        #print "input : ",hashes
         hash_arr = hashes.split(',')
         num_hashes = len(hash_arr)
         
         nhash_arr = []
+        # need revalidate here
         for x in range(0, num_hashes):
             try:
                 hasHash = self.run_as_current_user(self.ca.has_chunk, hash_arr[x])
@@ -2301,8 +2301,6 @@ class FTPHandler(AsyncChat):
                 return
 
         recipe_string = ''.join(nhash_arr)
-        print recipe_string
-
         recipe_bytes = bytearray.fromhex(recipe_string)
         self.push_dtp_data(recipe_bytes, isproducer=False, file=None, cmd="RSTR")
         return num_hashes
@@ -2339,7 +2337,7 @@ class FTPHandler(AsyncChat):
         hash_arr = args[1:]
         num_hashes = len(hash_arr)
 
-        self.run_as_current_user(self.ca.get_hashes, '/tmp/server_chunk_' + file)
+        self.run_as_current_user(self.ca.build_cache, '/tmp/server_chunk_' + file)
 
         try:
             path = self.run_as_current_user(self.fs.ftp2fs, file)
@@ -2348,6 +2346,10 @@ class FTPHandler(AsyncChat):
                 chunk = self.run_as_current_user(self.ca.get_chunk, hash_arr[x])
                 if chunk:
                     fd.write(chunk)
+                else:
+                    self.respond('550 %s.' % 'chunk not exist')
+                    return
+                    
             fd.close()
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
@@ -2355,6 +2357,8 @@ class FTPHandler(AsyncChat):
             self.respond('550 %s.' % why)
             return
         
+        self.run_as_current_user(self.fs.remove, '/tmp/server_chunk_' + file)
+        self.run_as_current_user(self.ca.validate_cache, '/tmp/server_chunk_' + file)
         self.respond("200 FILE: %s" % file)
         return file
 

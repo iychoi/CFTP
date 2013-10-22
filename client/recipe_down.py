@@ -16,7 +16,15 @@ ftp = cftplib.FTP()
 ftp.connect("localhost", 2121)
 ftp.login("user", "12345")
 
-hashes = cftp_client.getrecipe(ftp, "sample.dat")
-dest = open('sample.dat', 'wb')
+target_file = "sample.dat"
+temp_file = "/tmp/temp_download"
+
+ca.build_cache(target_file)
+hashes = cftp_client.getrecipe(ftp, target_file)
+dest = open(temp_file, 'wb')
 cftp_client.collectchunks(ftp, ca, hashes, dest)
 dest.close()
+os.remove(target_file)
+os.rename(temp_file, target_file)
+print "down complete"
+ca.build_cache(target_file)

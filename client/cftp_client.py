@@ -40,6 +40,7 @@ def getrecipe(ftp, filename):
     return strs
 
 def getserverhashes(ftp, ca, filename):
+    ca.build_cache(filename)
     recipe = ca.get_hashes(filename)
     strs = []
     for x in recipe:
@@ -72,8 +73,7 @@ def collectchunks(ftp, ca, hashes, outfile=None):
     
     # check server chunks
     for x in range(0, chunks_num):
-        #hasLocal = ca.has_chunk(hashes[x])
-        hasLocal = False
+        hasLocal = ca.has_chunk(hashes[x])
         if not hasLocal:
             print "read from server : ", hashes[x]
             server_chunks.append(x)

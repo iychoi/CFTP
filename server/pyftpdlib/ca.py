@@ -10,7 +10,7 @@ class Chunk_Handler (object):
     table_name = 'caftp'
     
     def __init__(self):
-        self.db = sqlite3.connect('/tmp/caftp.sqlite')
+        self.db = sqlite3.connect('/tmp/caftps.sqlite')
         self.cursor = self.db.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table_name + 
                             ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER)')
@@ -41,29 +41,11 @@ class Chunk_Handler (object):
         return False
     
     def get_hashes(self, filepath):
-        
-        self.__validate_cache(filepath)
-        
         t = ()  # tuple
         self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ?', (filepath,))
         row = self.cursor.fetchone()
         if row != None:
             t = tuple(row[2].split(':'))
-        else:
-            f = open(filepath, 'rb')
-            try:
-                while True:
-                    chunk = f.read(CHUNK_SIZE)  # for now, chunk size is 1KB
-                    if not chunk:
-                        break
-                    t = t + (hashlib.sha1(chunk).hexdigest(),)
-                self.cursor.execute('INSERT INTO ' + self.table_name + 
-                                    '(filepath, hashes, last_modified, file_size) VALUES (?,?,?,?)',
-                                    (filepath, ":".join(t), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath)))
-                self.db.commit()
-            finally:
-                f.close
-
         return t
 
     def get_merkle_hashes(self, filepath, tree_level):
@@ -84,14 +66,32 @@ class Chunk_Handler (object):
        
         return tuple(merkle_hashes);
     
-    def __validate_cache(self, filepath):
+    def validate_cache(self, filepath):
         self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
         row = self.cursor.fetchone()
         
         if row != None:
             if os.path.exists(filepath) and row[3] == time.ctime(os.path.getmtime(filepath)) and row[4] == os.path.getsize(filepath):
-                return
+                return True
             else:
                 self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
                 self.db.commit()
-        
+                return False
+        return False
+    
+    def build_cache(self, filepath):
+        if not self.validate_cache(filepath):
+            f = open(filepath, 'rb')
+            t = ()  # tuple
+            try:
+                while True:
+                    chunk = f.read(CHUNK_SIZE)  # for now, chunk size is 1KB
+                    if not chunk:
+                        break
+                    t = t + (hashlib.sha1(chunk).hexdigest(),)
+                self.cursor.execute('INSERT INTO ' + self.table_name + 
+                                    '(filepath, hashes, last_modified, file_size) VALUES (?,?,?,?)',
+                                    (filepath, ":".join(t), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath)))
+                self.db.commit()
+            finally:
+                f.close
