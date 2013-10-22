@@ -16,6 +16,8 @@ ftp = cftplib.FTP()
 ftp.connect("localhost", 2121)
 ftp.login("user", "12345")
 
-nhashes = cftp_client.getserverhashes(ftp, ca, "sample.dat")
-cftp_client.sendchunks(ftp, ca, nhashes, "sample.dat")
-cftp_client.buildfile(ftp, ca, "sample.dat")
+target_file = "sample_up.dat"
+
+nhashes = cftp_client.getserverhashes(ftp, ca, target_file)
+cftp_client.sendchunks(ftp, ca, nhashes, target_file)
+cftp_client.buildfile(ftp, ca, target_file)

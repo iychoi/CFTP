@@ -2334,15 +2334,17 @@ class FTPHandler(AsyncChat):
         """
         hash_arr = args.split(',')
         file = hash_arr[0]
-        hash_arr = args[1:]
+        hash_arr = hash_arr[1:]
         num_hashes = len(hash_arr)
 
-        self.run_as_current_user(self.ca.build_cache, '/tmp/server_chunk_' + file)
+        if self.run_as_current_user(self.fs.lexists, '/tmp/server_chunk_' + file):
+            self.run_as_current_user(self.ca.build_cache, '/tmp/server_chunk_' + file)
 
         try:
             path = self.run_as_current_user(self.fs.ftp2fs, file)
-            fd = self.run_as_current_user(self.fs.open, path, 'wb')
+            fd = self.run_as_current_user(self.fs.open, '/tmp/uploading_' + file, 'wb')
             for x in range(0, num_hashes):
+                print "check - ", hash_arr[x]
                 chunk = self.run_as_current_user(self.ca.get_chunk, hash_arr[x])
                 if chunk:
                     fd.write(chunk)
@@ -2351,16 +2353,21 @@ class FTPHandler(AsyncChat):
                     return
                     
             fd.close()
+            if self.run_as_current_user(self.fs.lexists, path):
+                self.run_as_current_user(self.fs.remove, path)
+            self.run_as_current_user(self.fs.rename, '/tmp/uploading_' + file, path)
+            self.run_as_current_user(self.ca.build_cache, path)
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
             why = _strerror(err)
             self.respond('550 %s.' % why)
             return
         
-        self.run_as_current_user(self.fs.remove, '/tmp/server_chunk_' + file)
+        if self.run_as_current_user(self.fs.lexists, '/tmp/server_chunk_' + file):
+            self.run_as_current_user(self.fs.remove, '/tmp/server_chunk_' + file)
         self.run_as_current_user(self.ca.validate_cache, '/tmp/server_chunk_' + file)
         self.respond("200 FILE: %s" % file)
-        return file
+        return
 
     def ftp_STOU(self, line):
         """Store a file on the server with a unique name.

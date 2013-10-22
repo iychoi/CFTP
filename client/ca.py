@@ -81,7 +81,6 @@ class Chunk_Handler (object):
     
     def build_cache(self, filepath):
         if not self.validate_cache(filepath):
-            print "invalid"
             f = open(filepath, 'rb')
             t = ()  # tuple
             try:
