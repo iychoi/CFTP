@@ -3,8 +3,10 @@ import sqlite3
 import os
 import time
 import math
+import json
 
 CHUNK_SIZE = 1024
+MERKLE_LOG_BASE = 4
  
 class Chunk_Handler (object):
    
@@ -14,7 +16,7 @@ class Chunk_Handler (object):
         self.db = sqlite3.connect('/tmp/caftpc.sqlite')
         self.cursor = self.db.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table_name + 
-                            ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER)')
+                            ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER, merkle_hashes TTEX)')
         
     def get_chunk(self, chunk_hash):
         chunk = None
@@ -49,27 +51,11 @@ class Chunk_Handler (object):
             t = tuple(row[2].split(':'))
         return t
 
+    ''' TODO: root's depth is 1 or 0?'''
     def get_merkle_depth(self, filepath):
         t = self.get_hashes(filepath)
-        return math.ceil(math.log(len(t), 2))
+        return int(math.ceil(math.log(len(t), MERKLE_LOG_BASE)))
 
-    def get_merkle_hashes(self, filepath, tree_level):
-        t = self.get_hashes(filepath)
-        no_of_hashes_to_return = pow(2, tree_level)
-       
-        if len(t) <= no_of_hashes_to_return:
-                return t
-        
-        group_size = len(t) / no_of_hashes_to_return;
-       
-        if group_size == 1:
-            return t
-       
-        list_of_hash_group = [ t[n:n + group_size] for n, item in enumerate(t) if n % group_size == 0 ]
-        merkle_hashes = [hashlib.sha1(":".join(item)).hexdigest() for n, item in enumerate(list_of_hash_group)]
-       
-        return tuple(merkle_hashes);
-    
     def validate_cache(self, filepath):
         self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
         row = self.cursor.fetchone()
@@ -98,15 +84,50 @@ class Chunk_Handler (object):
         if not self.validate_cache(filepath):
             f = open(filepath, 'rb')
             t = ()  # tuple
+            merkle_hashes = []
             try:
                 while True:
                     chunk = f.read(CHUNK_SIZE)  # for now, chunk size is 1KB
                     if not chunk:
                         break
                     t = t + (hashlib.sha1(chunk).hexdigest(),)
+                
+                merkle_hashes = [t, ]
+                intermediate_merkle_hashes = t
+                for i in range(int(math.ceil(math.log(len(t), MERKLE_LOG_BASE))), 0, -1):
+                    list_of_hash_group = (intermediate_merkle_hashes[n:n + MERKLE_LOG_BASE] for n, item in enumerate(intermediate_merkle_hashes) if n % MERKLE_LOG_BASE == 0)
+                    intermediate_merkle_hashes = tuple(hashlib.sha1(":".join(item)).hexdigest() for n, item in enumerate(list_of_hash_group))
+                    merkle_hashes = [intermediate_merkle_hashes, ] + merkle_hashes
+                    
                 self.cursor.execute('INSERT INTO ' + self.table_name + 
-                                    '(filepath, hashes, last_modified, file_size) VALUES (?,?,?,?)',
-                                    (filepath, ":".join(t), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath)))
+                                    '(filepath, hashes, last_modified, file_size, merkle_hashes) VALUES (?,?,?,?,?)',
+                                    (filepath, ":".join(t), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath), json.dumps(merkle_hashes)))
                 self.db.commit()
             finally:
                 f.close
+        
+    def get_merkle_children(self, filepath, parent):
+        self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ?', (filepath,))
+        row = self.cursor.fetchone()
+        
+        if row != None:
+            merkle_tree_list = json.loads(row[5])
+        
+            for i in merkle_tree_list:
+                if parent in i and merkle_tree_list.index(i) != len(merkle_tree_list) - 1:
+                    j = merkle_tree_list[merkle_tree_list.index(i) + 1]
+                    index_of_parent = i.index(parent)
+                    return j[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE]
+                
+    def has_merkle_hash(self, merkle_hash):
+        self.cursor.execute('SELECT * FROM ' + self.table_name)
+        rows = self.cursor.fetchall()
+        
+        if rows != None:
+            for row in rows:
+                merkle_tree_list = json.loads(row[5])
+                for i in merkle_tree_list:
+                    if(merkle_hash in i):
+                        return True
+        return False
+        
