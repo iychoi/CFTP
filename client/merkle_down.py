@@ -21,12 +21,9 @@ temp_file = "/tmp/client_download.tmp"
 
 if os.path.lexists(target_file):
     ca.build_cache(target_file)
-hashes = cftp_client.getrecipe(ftp, target_file)
-dest = open(temp_file, 'wb')
-cftp_client.collectchunks(ftp, ca, hashes, dest)
-dest.close()
-if os.path.lexists(target_file):
-    os.remove(target_file)
-os.rename(temp_file, target_file)
-print "down complete"
-ca.build_cache(target_file)
+
+depth = cftp_client.getmerkledepth(ftp, target_file)
+for x in range(0, depth):
+    print "depth :", x
+    #hashes = cftp_client.getmerklenodes(ftp, x)
+    #print hashes

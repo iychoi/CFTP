@@ -125,6 +125,8 @@ proto_cmds = {
                   help='Syntax: RETR <SP> file-name (retrieve a file).'),
     'RRTR' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: RRTR <SP> file-name (retrieve a recipe of a file).'),
+    'CMRT' : dict(perm='r', auth=True, arg=True,
+                  help='Syntax: CMRT <SP> file-name (count a depth of a file).'),
     'HRTR' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: RRTR <SP> hashes (retrieve chunks of hashes).'),
     'RMD'  : dict(perm='d', auth=True, arg=True,
@@ -2210,6 +2212,24 @@ class FTPHandler(AsyncChat):
         self.push_dtp_data(recipe_bytes, isproducer=False, file=None, cmd="RRTR")
         return file
 
+    def ftp_CMRT(self, file):
+        """Count the depth of merkle tree of the specified file (transfer from the server to the
+        client).  On success return the depth else None.
+        """
+        try:
+            self.run_as_current_user(self.ca.build_cache, file)
+            count = self.run_as_current_user(self.ca.get_merkle_depth, file)
+        except (EnvironmentError, FilesystemError):
+            err = sys.exc_info()[1]
+            why = _strerror(err)
+            self.respond('550 %s.' % why)
+            return
+
+        count_string = str(int(count))
+        print count_string
+        self.respond('200 ' + count_string)
+        return count_string
+
     def ftp_HRTR(self, hashes):
         """Retrieve chunks of the specified hashes (transfer from the server to the
         client).  On success return the number of hashes else None.
@@ -2217,7 +2237,6 @@ class FTPHandler(AsyncChat):
         hash_arr = hashes.split(',')
         num_hashes = len(hash_arr)
 
-        # need revalidate here
         producer = ChunkProducer(self.ca, hash_arr)
         self.push_dtp_data(producer, isproducer=True, file=None, cmd="HRTR")
         return num_hashes

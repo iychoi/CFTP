@@ -40,6 +40,7 @@ def getrecipe(ftp, filename):
     return strs
 
 def getserverhashes(ftp, ca, filename):
+    ca.validate_all_cache()
     ca.build_cache(filename)
     recipe = ca.get_hashes(filename)
     strs = []
@@ -64,45 +65,47 @@ def getserverhashes(ftp, ca, filename):
     return nhashes_strs
 
 def collectchunks(ftp, ca, hashes, outfile=None):
+    ca.validate_all_cache()
     # get chunk data from hash
     if outfile is None:
         outfile = sys.stdout
-    server_chunks = []
+    
     chunks_num = len(hashes)
-    req_hashes = ""
+    req_hashes = []
+    req_hash_string = ""
+    temp_server_chunk_file = '/tmp/server_chunks'
     
     # check server chunks
     for x in range(0, chunks_num):
         hasLocal = ca.has_chunk(hashes[x])
         if not hasLocal:
-            print "read from server : ", hashes[x]
-            server_chunks.append(x)
-            if req_hashes != "":
-                req_hashes += ","
-            req_hashes += hashes[x]
+            if hashes[x] not in req_hashes:
+                print "read from server : ", hashes[x]
+                req_hashes.append(hashes[x])
+                if req_hash_string != "":
+                    req_hash_string += ","
+                req_hash_string += hashes[x]
     
     # request server chunks and store it as local temporary file
-    if len(server_chunks) != 0:
-        f = open('/tmp/server_chunks', 'wb')
-        ftp.retrbinary("HRTR " + req_hashes, f.write)
+    if len(req_hashes) != 0:
+        f = open(temp_server_chunk_file, 'wb')
+        ftp.retrbinary("HRTR " + req_hash_string, f.write)
         f.close()
-    
-    # build file
-    if len(server_chunks) != 0:
-        f = open('/tmp/server_chunks', 'rb')
+        ca.build_cache(temp_server_chunk_file)
 
+    # build file
     for x in range(0, chunks_num):
-        chunk = None
-        if x in server_chunks:
-            chunk = f.read(CHUNK_SIZE)
-        else:
-            chunk = ca.get_chunk(hashes[x])
+        chunk = ca.get_chunk(hashes[x])
+        if chunk == None:
+            print "chunk is not in CA"
+            return
         
         outfile.write(chunk)
 
-    if len(server_chunks) != 0:
+    if len(req_hashes) != 0:
         f.close()
-        os.remove('/tmp/server_chunks')
+        os.remove(temp_server_chunk_file)
+        ca.validate_cache(temp_server_chunk_file)
 
 def sendchunks(ftp, ca, hashes, file):
     if len(hashes) == 0:
@@ -144,3 +147,10 @@ def buildfile(ftp, ca, file):
 
     ftp.voidcmd("BDRC " + file + "," + req_hashes)
     
+def getmerkledepth(ftp, filename):
+    ret = ftp.sendcmd("CMRT " + filename)
+    retarr = ret.split(" ")
+    if len(retarr) == 2:
+        if retarr[0] == "200":
+            return int(retarr[1])
+    return -1

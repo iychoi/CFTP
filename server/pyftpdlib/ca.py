@@ -2,6 +2,7 @@ import hashlib
 import sqlite3
 import os
 import time
+import math
 
 CHUNK_SIZE = 1024
  
@@ -48,8 +49,11 @@ class Chunk_Handler (object):
             t = tuple(row[2].split(':'))
         return t
 
+    def get_merkle_depth(self, filepath):
+        t = self.get_hashes(filepath)
+        return math.ceil(math.log(len(t), 2))
+
     def get_merkle_hashes(self, filepath, tree_level):
-        
         t = self.get_hashes(filepath)
         no_of_hashes_to_return = pow(2, tree_level)
        
@@ -78,6 +82,17 @@ class Chunk_Handler (object):
                 self.db.commit()
                 return False
         return False
+
+    def validate_all_cache(self):
+        self.cursor.execute('SELECT * FROM ' + self.table_name)
+        rows = self.cursor.fetchall()
+        if rows != None:
+            for row in rows:
+                if os.path.exists(row[1]) and row[3] == time.ctime(os.path.getmtime(row[1])) and row[4] == os.path.getsize(row[1]):
+                    pass
+            else:
+                self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (row[1],))
+                self.db.commit()
     
     def build_cache(self, filepath):
         if not self.validate_cache(filepath):
