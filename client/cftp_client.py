@@ -121,7 +121,7 @@ def getserverhashes(ftp, ca, filename):
 
 def sendchunks(ftp, ca, hashes, file):
     if len(hashes) == 0:
-        return
+        return True
 
     req_hashes = ""
     for x in range(0, len(hashes)):
@@ -134,9 +134,9 @@ def sendchunks(ftp, ca, hashes, file):
         chunk = ca.get_chunk(hashes[x])
         if chunk == None:
             print "chunk is not in CA"
-            return
+            return False
         
-        f.write(bytearray.fromhex(hashes[x]))
+        print "send to server : ", hashes[x]
         f.write(chunk)
     f.close()
 
@@ -144,6 +144,7 @@ def sendchunks(ftp, ca, hashes, file):
     ftp.storbinary("HSTR " + file, f)
     f.close()
     os.remove('/tmp/server_chunks')
+    return True
 
 def buildfile(ftp, ca, file):
     local_file = os.path.abspath(file)

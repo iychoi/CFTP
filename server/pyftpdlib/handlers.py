@@ -2360,7 +2360,6 @@ class FTPHandler(AsyncChat):
             path = self.run_as_current_user(self.fs.ftp2fs, file)
             fd = self.run_as_current_user(self.fs.open, '/tmp/uploading_' + file, 'wb')
             for x in range(0, num_hashes):
-                print "check - ", hash_arr[x]
                 chunk = self.run_as_current_user(self.ca.get_chunk, hash_arr[x])
                 if chunk:
                     fd.write(chunk)
