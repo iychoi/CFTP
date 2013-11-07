@@ -90,9 +90,9 @@ class Chunk_Handler (object):
             for row in rows:
                 if os.path.exists(row[1]) and row[3] == time.ctime(os.path.getmtime(row[1])) and row[4] == os.path.getsize(row[1]):
                     pass
-            else:
-                self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (row[1],))
-                self.db.commit()
+                else:
+                    self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (row[1],))
+                    self.db.commit()
     
     def build_cache(self, filepath):
         if not self.validate_cache(filepath):

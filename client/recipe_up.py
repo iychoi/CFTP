@@ -19,5 +19,9 @@ ftp.login("user", "12345")
 target_file = "sample_up.dat"
 
 nhashes = cftp_client.getserverhashes(ftp, ca, target_file)
-cftp_client.sendchunks(ftp, ca, nhashes, target_file)
-cftp_client.buildfile(ftp, ca, target_file)
+if nhashes == None:
+    print "upload error while checking server hashes"
+else:
+    cftp_client.sendchunks(ftp, ca, nhashes, target_file)
+    #cftp_client.buildfile(ftp, ca, target_file)
+    print "upload complete"

@@ -128,7 +128,7 @@ proto_cmds = {
     'CMRT' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: CMRT <SP> file-name (count a depth of a file).'),
     'HRTR' : dict(perm='r', auth=True, arg=True,
-                  help='Syntax: RRTR <SP> hashes (retrieve chunks of hashes).'),
+                  help='Syntax: HRTR <SP> hashes (retrieve chunks of hashes).'),
     'RMD'  : dict(perm='d', auth=True, arg=True,
                   help='Syntax: RMD <SP> dir-name (remove directory).'),
     'RNFR' : dict(perm='f', auth=True, arg=True,
@@ -2208,8 +2208,7 @@ class FTPHandler(AsyncChat):
             return
 
         recipe_string = ''.join(recipe)
-        recipe_bytes = bytearray.fromhex(recipe_string)
-        self.push_dtp_data(recipe_bytes, isproducer=False, file=None, cmd="RRTR")
+        self.respond('200 ' + recipe_string)
         return file
 
     def ftp_CMRT(self, file):
@@ -2307,7 +2306,6 @@ class FTPHandler(AsyncChat):
         num_hashes = len(hash_arr)
         
         nhash_arr = []
-        # need revalidate here
         for x in range(0, num_hashes):
             try:
                 hasHash = self.run_as_current_user(self.ca.has_chunk, hash_arr[x])
@@ -2320,8 +2318,7 @@ class FTPHandler(AsyncChat):
                 return
 
         recipe_string = ''.join(nhash_arr)
-        recipe_bytes = bytearray.fromhex(recipe_string)
-        self.push_dtp_data(recipe_bytes, isproducer=False, file=None, cmd="RSTR")
+        self.respond('200 ' + recipe_string)
         return num_hashes
 
     def ftp_HSTR(self, file):

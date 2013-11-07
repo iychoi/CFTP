@@ -25,44 +25,22 @@ def getbinary(ftp, filename, outfile=None):
     ftp.retrbinary("RETR " + filename, outfile.write)
 
 def getrecipe(ftp, filename):
-    # fetch a binary buffer
-    buffer = bytebuffer.ByteBuffer()
-    ftp.retrbinary("RRTR " + filename, buffer.pushBytes)
-    recipe = buffer.toBytes()
-    strs = []
-    if len(recipe) % 20 != 0:
-        print "length of recipe is not correct"
-        return None
+    ret = ftp.sendcmd("RRTR " + filename)
+    retarr = ret.split(" ")
+    if len(retarr) == 2:
+        if retarr[0] == "200":
+            recipe = retarr[1]
+            strs = []
+            if len(recipe) % 40 != 0:
+                print "length of recipe is not correct"
+                return None
     
-    for x in range(0, len(recipe) / 20):
-        strs += binascii.hexlify(bytearray(recipe[x * 20 : x * 20 + 20])),
+            for x in range(0, len(recipe) / 40):
+                strs += recipe[x * 40 : x * 40 + 40],
+            print "Received a recipe of the file :", filename
+            return strs
 
-    return strs
-
-def getserverhashes(ftp, ca, filename):
-    ca.validate_all_cache()
-    ca.build_cache(filename)
-    recipe = ca.get_hashes(filename)
-    strs = []
-    for x in recipe:
-        strs += ''.join(x),
-    #print strs
-
-    req_hashes = ""
-    for x in range(0, len(strs)):
-        if req_hashes != "":
-            req_hashes += ","
-        req_hashes += strs[x]
-
-    buffer = bytebuffer.ByteBuffer()
-    ftp.retrbinary("RSTR " + req_hashes, buffer.pushBytes)
-    nhashes = buffer.toBytes()
-    print nhashes
-    nhashes_strs = ""
-    for x in range(0, len(nhashes) / 20):
-        nhashes_strs += binascii.hexlify(bytearray(nhashes[x * 20 : x * 20 + 20])),
-
-    return nhashes_strs
+    return None
 
 def collectchunks(ftp, ca, hashes, outfile=None):
     ca.validate_all_cache()
@@ -98,14 +76,48 @@ def collectchunks(ftp, ca, hashes, outfile=None):
         chunk = ca.get_chunk(hashes[x])
         if chunk == None:
             print "chunk is not in CA"
-            return
-        
+            return False
         outfile.write(chunk)
 
     if len(req_hashes) != 0:
         f.close()
         os.remove(temp_server_chunk_file)
         ca.validate_cache(temp_server_chunk_file)
+    return True
+
+def getserverhashes(ftp, ca, filename):
+    local_file = os.path.abspath(filename)
+    ca.build_cache(local_file)
+    ca.validate_all_cache()
+    recipe = ca.get_hashes(local_file)
+    strs = []
+    for x in recipe:
+        hash = ''.join(x),
+        if hash not in strs:
+            strs += ''.join(x),
+
+    req_hashes = ""
+    for x in range(0, len(strs)):
+        if req_hashes != "":
+            req_hashes += ","
+        req_hashes += strs[x]
+
+    print "check server hashes of the file :", filename
+    ret = ftp.sendcmd("RSTR " + req_hashes)
+    retarr = ret.split(" ")
+    if len(retarr) == 2:
+        if retarr[0] == "200":
+            recipe = retarr[1]
+            strs = []
+            if len(recipe) % 40 != 0:
+                print "length of recipe is not correct"
+                return None
+    
+            for x in range(0, len(recipe) / 40):
+                strs += recipe[x * 40 : x * 40 + 40],
+            print "Received server hashes of the file :", filename
+            return strs
+    return []
 
 def sendchunks(ftp, ca, hashes, file):
     if len(hashes) == 0:
@@ -134,7 +146,8 @@ def sendchunks(ftp, ca, hashes, file):
     os.remove('/tmp/server_chunks')
 
 def buildfile(ftp, ca, file):
-    recipe = ca.get_hashes(file)
+    local_file = os.path.abspath(file)
+    recipe = ca.get_hashes(local_file)
     strs = []
     for x in recipe:
         strs += ''.join(x),
