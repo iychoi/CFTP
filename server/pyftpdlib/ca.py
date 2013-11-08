@@ -16,7 +16,7 @@ class Chunk_Handler (object):
         self.db = sqlite3.connect('/tmp/caftps.sqlite')
         self.cursor = self.db.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table_name + 
-                            ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER, merkle_hashes TTEX)')
+                            ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER, merkle_hashes TEXT)')
         
     def get_chunk(self, chunk_hash):
         chunk = None
@@ -106,28 +106,29 @@ class Chunk_Handler (object):
             finally:
                 f.close
         
-    def get_merkle_children(self, filepath, parent):
+    def get_merkle_children(self, filepath, parents):
+        l = []
         self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ?', (filepath,))
         row = self.cursor.fetchone()
-        
+
         if row != None:
             merkle_tree_list = json.loads(row[5])
-        
-            for i in merkle_tree_list:
-                if parent in i and merkle_tree_list.index(i) != len(merkle_tree_list) - 1:
-                    j = merkle_tree_list[merkle_tree_list.index(i) + 1]
-                    index_of_parent = i.index(parent)
-                    return j[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE]
-                
+          
+            for parent in parents:
+                for current_level in merkle_tree_list:
+                    if parent in current_level and merkle_tree_list.index(current_level) != len(merkle_tree_list) - 1:
+                        next_level = merkle_tree_list[merkle_tree_list.index(current_level) + 1]
+                        index_of_parent = current_level.index(parent)
+                        l.extend(next_level[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE])
+        return l
+
     def has_merkle_hash(self, merkle_hash):
-        self.cursor.execute('SELECT * FROM ' + self.table_name)
-        rows = self.cursor.fetchall()
-        
-        if rows != None:
-            for row in rows:
-                merkle_tree_list = json.loads(row[5])
-                for i in merkle_tree_list:
-                    if(merkle_hash in i):
-                        return True
+        self.cursor.execute('SELECT * FROM ' + self.table_name + 
+                            ' WHERE merkle_hashes like ?',
+                             ('%"' + merkle_hash + '"%',))
+        row = self.cursor.fetchone()
+
+        if row != None:
+            return True
         return False
         
