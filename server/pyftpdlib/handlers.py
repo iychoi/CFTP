@@ -125,8 +125,10 @@ proto_cmds = {
                   help='Syntax: RETR <SP> file-name (retrieve a file).'),
     'RRTR' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: RRTR <SP> file-name (retrieve a recipe of a file).'),
-    'CMRT' : dict(perm='r', auth=True, arg=True,
-                  help='Syntax: CMRT <SP> file-name (count a depth of a file).'),
+    'MINF' : dict(perm='r', auth=True, arg=True,
+                  help='Syntax: MINF <SP> file-name (get info. of a merkle tree of a file).'),
+    'MCRT' : dict(perm='r', auth=True, arg=True,
+                  help='Syntax: MCRT <SP> hashes (retrieve children of hashes).'),
     'HRTR' : dict(perm='r', auth=True, arg=True,
                   help='Syntax: HRTR <SP> hashes (retrieve chunks of hashes).'),
     'RMD'  : dict(perm='d', auth=True, arg=True,
@@ -1427,7 +1429,7 @@ class FTPHandler(AsyncChat):
                         mode, arg = arg.split(' ', 1)
                         arg = self.fs.ftp2fs(arg)
                         kwargs = dict(mode=mode)
-                elif cmd in ('HRTR', 'RSTR', 'HSTR', 'BDRC'):
+                elif cmd in ('HRTR', 'RSTR', 'HSTR', 'BDRC', 'MCRT'):
                     # skip
                     pass
                 else:  # LIST, NLST, MLSD, MLST
@@ -2211,23 +2213,46 @@ class FTPHandler(AsyncChat):
         self.respond('200 ' + recipe_string)
         return file
 
-    def ftp_CMRT(self, file):
-        """Count the depth of merkle tree of the specified file (transfer from the server to the
-        client).  On success return the depth else None.
+    def ftp_MINF(self, file):
+        """Get info. of a merkle tree of the specified file (transfer from the server to the
+        client).  On success return the info else None.
         """
         try:
             self.run_as_current_user(self.ca.build_cache, file)
-            count = self.run_as_current_user(self.ca.get_merkle_depth, file)
+            height = self.run_as_current_user(self.ca.get_merkle_height, file)
+            root = self.run_as_current_user(self.ca.get_merkle_root, file)
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
             why = _strerror(err)
             self.respond('550 %s.' % why)
             return
 
-        count_string = str(int(count))
-        print count_string
-        self.respond('200 ' + count_string)
-        return count_string
+        return_string = str(int(height)) + "," + root
+        self.respond('200 ' + return_string)
+        return return_string
+
+    def ftp_MCRT(self, hashes):
+        """Retrieve the children of specified hashes (transfer from the server to the
+        client).  On success return the number of hashes else None.
+        """
+        hash_arr = hashes.split(',')
+        file = hash_arr[0]
+        hash_arr = hash_arr[1:]
+        
+        children = []
+        try:
+            path = self.run_as_current_user(self.fs.ftp2fs, file)
+            children_hashes = self.run_as_current_user(self.ca.get_merkle_children, path, hash_arr)
+            children += children_hashes
+        except (EnvironmentError, FilesystemError):
+            err = sys.exc_info()[1]
+            why = _strerror(err)
+            self.respond('550 %s.' % why)
+            return
+
+        children_string = ''.join(children)
+        self.respond('200 ' + children_string)
+        return len(children)
 
     def ftp_HRTR(self, hashes):
         """Retrieve chunks of the specified hashes (transfer from the server to the

@@ -51,8 +51,7 @@ class Chunk_Handler (object):
             t = tuple(row[2].split(':'))
         return t
 
-    ''' TODO: root's depth is 1 or 0?'''
-    def get_merkle_depth(self, filepath):
+    def get_merkle_height(self, filepath):
         t = self.get_hashes(filepath)
         return int(math.ceil(math.log(len(t), MERKLE_LOG_BASE)))
 
@@ -121,6 +120,18 @@ class Chunk_Handler (object):
                         index_of_parent = current_level.index(parent)
                         l.extend(next_level[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE])
         return l
+
+    def get_merkle_root(self, filepath):
+        self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ?', (filepath,))
+        row = self.cursor.fetchone()
+        
+        if row != None:
+            merkle_tree_list = json.loads(row[5])
+            if len(merkle_tree_list) != 0:
+                if len(merkle_tree_list[0]) != 0:
+                    return merkle_tree_list[0][0]
+
+        return None
 
     def has_merkle_hash(self, merkle_hash):
         self.cursor.execute('SELECT * FROM ' + self.table_name + 

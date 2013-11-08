@@ -117,7 +117,7 @@ def getserverhashes(ftp, ca, filename):
                 strs += recipe[x * 40 : x * 40 + 40],
             print "Received server hashes of the file :", filename
             return strs
-    return []
+    return None
 
 def sendchunks(ftp, ca, hashes, file):
     if len(hashes) == 0:
@@ -161,10 +161,44 @@ def buildfile(ftp, ca, file):
 
     ftp.voidcmd("BDRC " + file + "," + req_hashes)
     
-def getmerkledepth(ftp, filename):
-    ret = ftp.sendcmd("CMRT " + filename)
+def getmerkleinfo(ftp, filename):
+    ret = ftp.sendcmd("MINF " + filename)
     retarr = ret.split(" ")
     if len(retarr) == 2:
         if retarr[0] == "200":
-            return int(retarr[1])
-    return -1
+            return retarr[1]
+    return None
+
+def collectmerkletree(ftp, file, height, roothash):
+    hashes = [roothash]
+    
+    for x in range(0, height):
+        print "depth :", x
+        print "request hash :", hashes
+        req_hashes = ""
+        for x in range(0, len(hashes)):
+            if req_hashes != "":
+                req_hashes += ","
+            req_hashes += hashes[x]
+
+        ret = ftp.sendcmd("MCRT " + file + "," + req_hashes)
+        retarr = ret.split(" ")
+        if len(retarr) == 2:
+            if retarr[0] == "200":
+                recipe = retarr[1]
+                strs = []
+                if len(recipe) % 40 != 0:
+                    print "length of recipe is not correct"
+                    return None
+
+                for x in range(0, len(recipe) / 40):
+                    strs += recipe[x * 40 : x * 40 + 40],
+                print "Received server hashes of the file :", file
+                hashes = strs
+            else:
+                print "error while searching children"
+                return None
+        else:
+            print "error while searching children"
+            return None
+    return hashes
