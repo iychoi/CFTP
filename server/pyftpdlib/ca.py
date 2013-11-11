@@ -143,3 +143,29 @@ class Chunk_Handler (object):
             return True
         return False
         
+    def get_merkle_leaves(self, parent_merkle_hash):
+        self.cursor.execute('SELECT * FROM ' + self.table_name + 
+                            ' WHERE merkle_hashes like ?',
+                             ('%"' + parent_merkle_hash + '"%',))
+        row = self.cursor.fetchone()
+        
+        is_input_leaf = True
+        current_level_merkle_hashes = [parent_merkle_hash, ]
+        
+        if row != None:
+            filepath = row[1]
+            
+            while True:
+                next_level_merkle_hashes = self.get_merkle_children(filepath, current_level_merkle_hashes)
+                if not next_level_merkle_hashes:
+                    break
+                else:
+                    is_input_leaf = False
+                    current_level_merkle_hashes = next_level_merkle_hashes
+                    
+            if not is_input_leaf:
+                return current_level_merkle_hashes
+            else:
+                return []
+                
+        return []
