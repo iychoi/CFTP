@@ -169,13 +169,20 @@ def getmerkleinfo(ftp, filename):
             return retarr[1]
     return None
 
-def collectmerkletree(ftp, file, height, roothash):
-    hashes = [roothash]
+def collectmerkletree(ftp, ca, file, height, roothash):
+    hashes = []
+    build_leaf = {}
     
-    for x in range(0, height):
-        print "depth :", x
-        print "request hash :", hashes
+    if not ca.has_merkle_hash(roothash):
+        hashes += roothash,
+    
+    for depth in range(0, height):
+        print "depth :", depth
+        #print "request hash :", len(hashes), hashes
         req_hashes = ""
+        if len(hashes) == 0:
+            break
+
         for x in range(0, len(hashes)):
             if req_hashes != "":
                 req_hashes += ","
@@ -192,13 +199,48 @@ def collectmerkletree(ftp, file, height, roothash):
                     return None
 
                 for x in range(0, len(recipe) / 40):
-                    strs += recipe[x * 40 : x * 40 + 40],
-                print "Received server hashes of the file :", file
-                hashes = strs
+                    merkle_node = recipe[x * 40 : x * 40 + 40]
+                    strs += merkle_node,
+                #print "received hash :", len(strs), strs
+
+                for x in range(0, len(hashes)):
+                    build_leaf[hashes[x]] = strs[x*ca.get_merkle_base() : x*ca.get_merkle_base()+ca.get_merkle_base()]
+                
+                print "Received server hashes of the file :", file, "depth :", depth
+                hashes = []
+                for x in range(0, len(strs)):
+                    #check local merkle tree
+                    if not ca.has_merkle_hash(strs[x]):
+                        hashes += strs[x],
             else:
                 print "error while searching children"
                 return None
         else:
             print "error while searching children"
             return None
+
+    leaf_recipe = build_leaf_recipe(ca, roothash, build_leaf, height)
+    return leaf_recipe
+
+
+def build_leaf_recipe(ca, roothash, merkle_tree, height):
+    print "build leaf"
+
+    hashes = __build_recipe_from_merkle(ca, roothash, merkle_tree, height)
+    #print hashes
     return hashes
+
+def __build_recipe_from_merkle(ca, hash, merkle_tree, height):
+    if height <= 0:
+        return [hash]
+
+    if ca.has_merkle_hash(hash):
+        return ca.get_merkle_leaves(hash)
+    else:
+        children = merkle_tree[hash]
+        ret_hashes = []
+        for x in range(0, len(children)):
+            child = children[x]
+            ret_hashes += __build_recipe_from_merkle(ca, child, merkle_tree, height -1)
+
+    return ret_hashes

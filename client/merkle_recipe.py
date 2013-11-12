@@ -36,17 +36,4 @@ else:
     if hashes == None:
         print "file not exist"
     else:
-        dest = open(temp_file, 'wb')
-        ret = cftp_client.collectchunks(ftp, ca, hashes, dest)
-        dest.close()
-
-        if ret:
-            if os.path.lexists(local_target_file):
-                os.remove(local_target_file)
-            os.rename(temp_file, local_target_file)
-            print "download complete"
-            ca.build_cache(local_target_file)
-        else:
-            if os.path.lexists(temp_file):
-                os.remove(temp_file)
-            print "download failed"
+	print hashes

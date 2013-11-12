@@ -55,6 +55,12 @@ class Chunk_Handler (object):
         t = self.get_hashes(filepath)
         return int(math.ceil(math.log(len(t), MERKLE_LOG_BASE)))
 
+    def get_merkle_leaves_count(self, height):
+        return int(math.pow(MERKLE_LOG_BASE, height))
+
+    def get_merkle_base(self):
+        return MERKLE_LOG_BASE
+
     def validate_cache(self, filepath):
         self.cursor.execute('SELECT * FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
         row = self.cursor.fetchone()
