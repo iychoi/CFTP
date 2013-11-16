@@ -5,11 +5,21 @@ import hashlib
 #Usage: common_chunk_count.py filepath1 filepath2 [chunksize]
 CHUNK_SIZE = 1024
 
+def getSize(path):
+	fileobject = open(path, 'rb')
+	fileobject.seek(0,2) # move the cursor to the end of the file
+	size = fileobject.tell()
+	fileobject.close()
+	return size
+
 def main():
 	if len(sys.argv) < 3:
 		print "Usage: common_chunk_count.py filepath1 filepath2 [chunksize]"
 		return
 
+	f1_size = getSize(sys.argv[1])
+	f2_size = getSize(sys.argv[2])
+	
 	f1 = open(sys.argv[1], 'rb')
 	f2 = open(sys.argv[2], 'rb')
 
@@ -18,6 +28,12 @@ def main():
 
 	l1 = [];
 	l2 = [];
+	
+	f1_pos = 0
+	f2_pos = 0
+
+	f1_percent = 0
+	f2_percent = 0
 
 	try:
 		while True:
@@ -25,6 +41,11 @@ def main():
 			if not chunk:
 				break
 			l1 = l1 + [hashlib.sha1(chunk).hexdigest(),]
+			f1_pos += CHUNK_SIZE
+			percent = int((f1_pos / float(f1_size)) * 100)
+			if f1_percent != percent:
+				f1_percent = percent
+				print sys.argv[1], ":", f1_percent, "%"
 	finally:
 		f1.close
 
@@ -34,6 +55,11 @@ def main():
 			if not chunk:
 				break
 			l2 = l2 + [hashlib.sha1(chunk).hexdigest(),]
+			f2_pos += CHUNK_SIZE
+			percent = int((f2_pos / float(f2_size)) * 100)
+			if f2_percent != percent:
+				f2_percent = percent
+				print sys.argv[2], ":", f2_percent, "%"
 	finally:
 		f2.close
 	
