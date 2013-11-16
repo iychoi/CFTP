@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sys
 import hashlib
+import collections
 
 #Usage: common_chunk_count.py filepath1 filepath2 [chunksize]
 CHUNK_SIZE = 1024
@@ -69,8 +70,15 @@ def main():
 	print "No of chunks in", f1.name + ":" ,len(l1)
 	print "No of chunks in", f2.name + ":" ,len(l2)
 
+	l1dup = [i for i, ct in collections.Counter(l1).items() if ct > 1]
+	l2dup = [i for i, ct in collections.Counter(l2).items() if ct > 1]
+	
+	l1uniq = [i for i, ct in collections.Counter(l1).items() if ct == 1]
+	l2uniq = [i for i, ct in collections.Counter(l2).items() if ct == 1]
+
 	common_hashes = [i for i in l1 if i in l2]
-	print "No of common chunks:", len(common_hashes)
+	
+	print "(Inter duplication, file1 intra, file2 intra, file1 unique, file2 unique) - (%d, %d, %d, %d, %d)" %(len(common_hashes), len(l1dup), len(l2dup), len(l1uniq), len(l2uniq))
 
 	#for i in range(len(l1)):
 	#	if l1[i] in l2:
