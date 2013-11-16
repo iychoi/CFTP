@@ -79,9 +79,10 @@ def main():
 	l1uniq = [i for i, ct in collections.Counter(l1).items() if ct == 1]
 	l2uniq = [i for i, ct in collections.Counter(l2).items() if ct == 1]
 
-	common_hashes = [i for i in l1 if i in l2]
+	l1filtered = set(l1)
+	common_hashes = [i for i in l1filtered if i in l2]
 	
-	print "(Inter duplication, file1 redundant, file2 redundant, file1 unique, file2 unique) - (%d, %d, %d, %d, %d)" %(len(common_hashes), l1_redundant, l2_redundant, len(l1uniq), len(l2uniq))
+	print "(Inter-file redundancy, file1 redundancy, file2 redundancy, file1 unique, file2 unique) - (%d, %d, %d, %d, %d)" %(len(common_hashes), l1_redundant, l2_redundant, len(l1) - l1_redundant, len(l2) - l2_redundant)
 
 	#for i in range(len(l1)):
 	#	if l1[i] in l2:
