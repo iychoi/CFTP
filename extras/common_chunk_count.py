@@ -13,6 +13,9 @@ def getSize(path):
 	return size
 
 def main():
+	
+	global CHUNK_SIZE
+	
 	if len(sys.argv) < 3:
 		print "Usage: common_chunk_count.py filepath1 filepath2 [chunksize]"
 		return
