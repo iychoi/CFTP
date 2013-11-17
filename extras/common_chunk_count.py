@@ -73,11 +73,14 @@ def main():
 	#l1dup = [i for i, ct in collections.Counter(l1).items() if ct > 1]
 	#l2dup = [i for i, ct in collections.Counter(l2).items() if ct > 1]
 	
-	l1_redundant = sum([ct-1 for i, ct in collections.Counter(l1).items() if ct > 1])
-	l2_redundant = sum([ct-1 for i, ct in collections.Counter(l2).items() if ct > 1])
+	l1_itemcount = collections.Counter(l1).items();
+	l2_itemcount = collections.Counter(l2).items();
 	
-	l1uniq = [i for i, ct in collections.Counter(l1).items() if ct == 1]
-	l2uniq = [i for i, ct in collections.Counter(l2).items() if ct == 1]
+	l1_redundant = sum([ct-1 for i, ct in l1_itemcount if ct > 1])
+	l2_redundant = sum([ct-1 for i, ct in l2_itemcount if ct > 1])
+	
+	l1uniq = [i for i, ct in l1_itemcount if ct == 1]
+	l2uniq = [i for i, ct in l2_itemcount if ct == 1]
 
 	l1filtered = set(l1)
 	common_hashes = [i for i in l1filtered if i in l2]
