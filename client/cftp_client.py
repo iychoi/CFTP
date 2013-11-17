@@ -36,7 +36,8 @@ def getrecipe(ftp, filename):
                 return None
     
             for x in range(0, len(recipe) / 40):
-                strs += recipe[x * 40 : x * 40 + 40],
+                #strs += recipe[x * 40 : x * 40 + 40],
+                strs.append(recipe[x * 40 : x * 40 + 40],)
             print "Received a recipe of the file :", filename
             return strs
 
@@ -94,7 +95,8 @@ def getserverhashes(ftp, ca, filename):
     for x in recipe:
         hash = ''.join(x),
         if hash not in strs:
-            strs += ''.join(x),
+            #strs += ''.join(x),
+            strs.append(''.join(x),)
 
     req_hashes = ""
     for x in range(0, len(strs)):
@@ -114,7 +116,8 @@ def getserverhashes(ftp, ca, filename):
                 return None
     
             for x in range(0, len(recipe) / 40):
-                strs += recipe[x * 40 : x * 40 + 40],
+                #strs += recipe[x * 40 : x * 40 + 40],
+		strs.append(recipe[x * 40 : x * 40 + 40],)
             print "Received server hashes of the file :", filename
             return strs
     return None
@@ -151,7 +154,8 @@ def buildfile(ftp, ca, file):
     recipe = ca.get_hashes(local_file)
     strs = []
     for x in recipe:
-        strs += ''.join(x),
+        #strs += ''.join(x),
+        strs.append(''.join(x),)
 
     req_hashes = ""
     for x in range(0, len(strs)):
@@ -200,7 +204,8 @@ def collectmerkletree(ftp, ca, file, height, roothash):
 
                 for x in range(0, len(recipe) / 40):
                     merkle_node = recipe[x * 40 : x * 40 + 40]
-                    strs += merkle_node,
+                    #strs += merkle_node,
+                    strs.append(merkle_node,)
                 #print "received hash :", len(strs), strs
 
                 for x in range(0, len(hashes)):
@@ -211,7 +216,8 @@ def collectmerkletree(ftp, ca, file, height, roothash):
                 for x in range(0, len(strs)):
                     #check local merkle tree
                     if not ca.has_merkle_hash(strs[x]):
-                        hashes += strs[x],
+                        #hashes += strs[x],
+                        hashes.append(strs[x],)
             else:
                 print "error while searching children"
                 return None
@@ -241,6 +247,7 @@ def __build_recipe_from_merkle(ca, hash, merkle_tree, height):
         ret_hashes = []
         for x in range(0, len(children)):
             child = children[x]
-            ret_hashes += __build_recipe_from_merkle(ca, child, merkle_tree, height -1)
+            #ret_hashes += __build_recipe_from_merkle(ca, child, merkle_tree, height -1)
+            ret_hashes.append(__build_recipe_from_merkle(ca, child, merkle_tree, height -1))
 
     return ret_hashes
