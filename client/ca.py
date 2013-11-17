@@ -97,7 +97,7 @@ class Chunk_Handler (object):
                         break
                     l.append(hashlib.sha1(chunk).hexdigest())
                 
-                merkle_hashes = l
+                merkle_hashes = [l,]
                 intermediate_merkle_hashes = l
                 for i in range(int(math.ceil(math.log(len(l), MERKLE_LOG_BASE))), 0, -1):
                     list_of_hash_group = (intermediate_merkle_hashes[n:n + MERKLE_LOG_BASE] for n, item in enumerate(intermediate_merkle_hashes) if n % MERKLE_LOG_BASE == 0)
