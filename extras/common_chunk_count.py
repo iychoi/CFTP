@@ -83,7 +83,8 @@ def main():
 	l2uniq = [i for i, ct in l2_itemcount if ct == 1]
 
 	l1filtered = set(l1)
-	common_hashes = [i for i in l1filtered if i in l2]
+	l2filtered = set(l2)
+	common_hashes = [i for i in l1filtered if i in l2filtered]
 	
 	print "(Inter-file redundancy, file1 redundancy, file1 unique) - (%d , %d , %d)" %(len(common_hashes), l1_redundant, len(l1) - l1_redundant)
 
@@ -105,3 +106,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
