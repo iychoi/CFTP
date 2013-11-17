@@ -44,7 +44,7 @@ def main():
 			chunk = f1.read(CHUNK_SIZE)
 			if not chunk:
 				break
-			l1 = l1 + [hashlib.sha1(chunk).hexdigest(),]
+			l1.append(hashlib.sha1(chunk).hexdigest())
 			f1_pos += CHUNK_SIZE
 			percent = int((f1_pos / float(f1_size)) * 100)
 			if f1_percent != percent:
@@ -58,7 +58,7 @@ def main():
 			chunk = f2.read(CHUNK_SIZE)
 			if not chunk:
 				break
-			l2 = l2 + [hashlib.sha1(chunk).hexdigest(),]
+			l2.append(hashlib.sha1(chunk).hexdigest())
 			f2_pos += CHUNK_SIZE
 			percent = int((f2_pos / float(f2_size)) * 100)
 			if f2_percent != percent:
@@ -82,7 +82,7 @@ def main():
 	l1filtered = set(l1)
 	common_hashes = [i for i in l1filtered if i in l2]
 	
-	print "(Inter-file redundancy, file1 redundancy, file2 redundancy, file1 unique, file2 unique) - (%d, %d, %d, %d, %d)" %(len(common_hashes), l1_redundant, l2_redundant, len(l1) - l1_redundant, len(l2) - l2_redundant)
+	print "(Inter-file redundancy, file1 redundancy, file1 unique) - (%d , %d , %d)" %(len(common_hashes), l1_redundant, len(l1) - l1_redundant)
 
 	#for i in range(len(l1)):
 	#	if l1[i] in l2:
