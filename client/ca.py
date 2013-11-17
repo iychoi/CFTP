@@ -5,7 +5,7 @@ import time
 import math
 import json
 
-CHUNK_SIZE = 1024
+CHUNK_SIZE = 65536
 MERKLE_LOG_BASE = 4
  
 class Chunk_Handler (object):
@@ -88,25 +88,25 @@ class Chunk_Handler (object):
     def build_cache(self, filepath):
         if not self.validate_cache(filepath):
             f = open(filepath, 'rb')
-            t = ()  # tuple
+            l = []
             merkle_hashes = []
             try:
                 while True:
-                    chunk = f.read(CHUNK_SIZE)  # for now, chunk size is 1KB
+                    chunk = f.read(CHUNK_SIZE)
                     if not chunk:
                         break
-                    t = t + (hashlib.sha1(chunk).hexdigest(),)
+                    l.append(hashlib.sha1(chunk).hexdigest())
                 
-                merkle_hashes = [t, ]
-                intermediate_merkle_hashes = t
-                for i in range(int(math.ceil(math.log(len(t), MERKLE_LOG_BASE))), 0, -1):
+                merkle_hashes = l
+                intermediate_merkle_hashes = l
+                for i in range(int(math.ceil(math.log(len(l), MERKLE_LOG_BASE))), 0, -1):
                     list_of_hash_group = (intermediate_merkle_hashes[n:n + MERKLE_LOG_BASE] for n, item in enumerate(intermediate_merkle_hashes) if n % MERKLE_LOG_BASE == 0)
-                    intermediate_merkle_hashes = tuple(hashlib.sha1(":".join(item)).hexdigest() for n, item in enumerate(list_of_hash_group))
+                    intermediate_merkle_hashes = list(hashlib.sha1(":".join(item)).hexdigest() for n, item in enumerate(list_of_hash_group))
                     merkle_hashes = [intermediate_merkle_hashes, ] + merkle_hashes
                     
                 self.cursor.execute('INSERT INTO ' + self.table_name + 
                                     '(filepath, hashes, last_modified, file_size, merkle_hashes) VALUES (?,?,?,?,?)',
-                                    (filepath, ":".join(t), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath), json.dumps(merkle_hashes)))
+                                    (filepath, ":".join(l), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath), json.dumps(merkle_hashes)))
                 self.db.commit()
             finally:
                 f.close
