@@ -43,10 +43,12 @@ class ByteBuffer(object):
         return self._bytes[:bytes_to_peek]
  
     def pushBytes(self, bytes):
-        self._bytes += bytes
+        #self._bytes += bytes
+        self._bytes.append(bytes)
 
     def write(self, bytes):
-        self._bytes += bytes
+        #self._bytes += bytes
+        self._bytes.append(bytes)
 
     def read(self, blocksize):
         return self.readBytes(blocksize)
