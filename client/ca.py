@@ -17,7 +17,16 @@ class Chunk_Handler (object):
         self.cursor = self.db.cursor()
         self.cursor.execute('CREATE TABLE IF NOT EXISTS ' + self.table_name + 
                             ' (id INTEGER PRIMARY KEY AUTOINCREMENT, filepath TEXT UNIQUE, hashes TEXT, last_modified TEXT, file_size INTEGER, merkle_hashes TEXT)')
+        self.build_hash_cache()
         
+    def build_hash_cache(self):
+        self.hash_cache = set()
+        self.cursor.execute('SELECT hashes FROM ' + self.table_name)
+        rows = self.cursor.fetchall()
+        if rows != None:
+            for row in rows:
+                self.hash_cache.update(row[0].split(':'))
+                
     def get_chunk(self, chunk_hash):
         chunk = None
         self.cursor.execute('SELECT * FROM ' + self.table_name + 
@@ -35,11 +44,7 @@ class Chunk_Handler (object):
         return chunk
 
     def has_chunk(self, chunk_hash):
-        self.cursor.execute('SELECT * FROM ' + self.table_name + 
-                            ' WHERE hashes LIKE ? OR hashes LIKE ? OR hashes LIKE ? OR hashes LIKE ?',
-                            ('%:' + chunk_hash + ':%', chunk_hash + ':%', '%:' + chunk_hash, chunk_hash))
-        row = self.cursor.fetchone()
-        if row != None:
+        if chunk_hash in self.hash_cache:
             return True
         return False
     
@@ -71,6 +76,7 @@ class Chunk_Handler (object):
             else:
                 self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (filepath,))
                 self.db.commit()
+                self.build_hash_cache()
                 return False
         return False
 
@@ -84,6 +90,7 @@ class Chunk_Handler (object):
                 else:
                     self.cursor.execute('DELETE FROM ' + self.table_name + ' WHERE filepath = ? ', (row[1],))
                     self.db.commit()
+                    self.build_hash_cache()
     
     def build_cache(self, filepath):
         if not self.validate_cache(filepath):
@@ -97,7 +104,7 @@ class Chunk_Handler (object):
                         break
                     l.append(hashlib.sha1(chunk).hexdigest())
                 
-                merkle_hashes = [l,]
+                merkle_hashes = [l, ]
                 intermediate_merkle_hashes = l
                 for i in range(int(math.ceil(math.log(len(l), MERKLE_LOG_BASE))), 0, -1):
                     list_of_hash_group = (intermediate_merkle_hashes[n:n + MERKLE_LOG_BASE] for n, item in enumerate(intermediate_merkle_hashes) if n % MERKLE_LOG_BASE == 0)
@@ -108,6 +115,7 @@ class Chunk_Handler (object):
                                     '(filepath, hashes, last_modified, file_size, merkle_hashes) VALUES (?,?,?,?,?)',
                                     (filepath, ":".join(l), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath), json.dumps(merkle_hashes)))
                 self.db.commit()
+                self.hash_cache.update(l)
             finally:
                 f.close
         
