@@ -29,7 +29,7 @@ def download(ca, ftp, filename):
         if ret:
             if os.path.lexists(local_target_file):
                 os.remove(local_target_file)
-            os.rename(temp_file, local_target_file)
+            shutil.move(temp_file, local_target_file)
             print "download complete"
             ca.build_cache(local_target_file)
         else:
