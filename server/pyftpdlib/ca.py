@@ -20,8 +20,7 @@ class Chunk_Handler (object):
         self.build_hash_cache()
         self.lastread_hashlist = []
         self.lastread_file = None
-        
-        
+    
     def build_hash_cache(self):
         self.hash_cache = set()
         self.cursor.execute('SELECT hashes FROM ' + self.table_name)
@@ -33,15 +32,11 @@ class Chunk_Handler (object):
     def get_chunk(self, chunk_hash):
         chunk = None
         
-        #read from cache if present
+        # read from cache if present
         if chunk_hash in self.lastread_hashlist:
-            try:
-                f = open(self.lastread_file, 'rb')
-                offset = self.lastread_hashlist.index(chunk_hash) * CHUNK_SIZE
-                f.seek(offset)
-                chunk = f.read(CHUNK_SIZE)
-            finally:
-                f.close
+            offset = self.lastread_hashlist.index(chunk_hash) * CHUNK_SIZE
+            self.lastread_file.seek(offset)
+            chunk = self.lastread_file.read(CHUNK_SIZE)
             return chunk
             
         self.cursor.execute('SELECT * FROM ' + self.table_name + 
@@ -49,15 +44,15 @@ class Chunk_Handler (object):
                             ('%:' + chunk_hash + ':%', chunk_hash + ':%', '%:' + chunk_hash, chunk_hash))
         row = self.cursor.fetchone()
         if row != None:
-            f = open(row[1], 'rb')
-            try:
-                self.lastread_hashlist = row[2].split(':')
-                self.lastread_file = row[1]
-                offset = self.lastread_hashlist.index(chunk_hash) * CHUNK_SIZE
-                f.seek(offset)
-                chunk = f.read(CHUNK_SIZE)
-            finally:
-                f.close
+            
+            if self.lastread_file != None:
+                self.lastread_file.close()
+                
+            self.lastread_file = open(row[1], 'rb')
+            self.lastread_hashlist = row[2].split(':')
+            offset = self.lastread_hashlist.index(chunk_hash) * CHUNK_SIZE
+            self.lastread_file.seek(offset)
+            chunk = self.lastread_file.read(CHUNK_SIZE)
         return chunk
 
     def has_chunk(self, chunk_hash):
