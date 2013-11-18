@@ -56,14 +56,15 @@ def collectchunks(ftp, ca, hashes, outfile=None):
     
     # check server chunks
     for x in range(0, chunks_num):
-        hasLocal = ca.has_chunk(hashes[x])
+        hash = hashes[x]
+        hasLocal = ca.has_chunk(hash)
         if not hasLocal:
-            if hashes[x] not in req_hashes:
-                print "read from server : ", hashes[x]
-                req_hashes.extend(hashes[x])
+            if hash not in req_hashes:
+                print "read from server : ", hash
+                req_hashes.append(hash)
                 if req_hash_string != "":
                     req_hash_string += ","
-                req_hash_string += hashes[x]
+                req_hash_string += hash
     
     # request server chunks and store it as local temporary file
     if len(req_hashes) != 0:
@@ -74,7 +75,8 @@ def collectchunks(ftp, ca, hashes, outfile=None):
 
     # build file
     for x in range(0, chunks_num):
-        chunk = ca.get_chunk(hashes[x])
+        hash = hashes[x]
+        chunk = ca.get_chunk(hash)
         if chunk == None:
             print "chunk is not in CA"
             return False
@@ -186,7 +188,7 @@ def collectmerkletree(ftp, ca, file, height, roothash):
     
         for depth in range(0, height):
             print "depth :", depth
-            print "request hash :", len(hashes), hashes
+            #print "request hash :", len(hashes), hashes
             req_hashes = ""
             if len(hashes) == 0:
                 break
