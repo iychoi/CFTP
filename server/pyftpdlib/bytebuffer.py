@@ -44,11 +44,11 @@ class ByteBuffer(object):
  
     def pushBytes(self, bytes):
         #self._bytes += bytes
-        self._bytes.append(bytes)
+        self._bytes.extend(bytes)
 
     def write(self, bytes):
         #self._bytes += bytes
-        self._bytes.append(bytes)
+        self._bytes.extend(bytes)
 
     def read(self, blocksize):
         return self.readBytes(blocksize)

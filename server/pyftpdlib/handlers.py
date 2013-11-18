@@ -2244,7 +2244,7 @@ class FTPHandler(AsyncChat):
             path = self.run_as_current_user(self.fs.ftp2fs, file)
             children_hashes = self.run_as_current_user(self.ca.get_merkle_children, path, hash_arr)
             #children += children_hashes
-            children.append(children_hashes)
+            children.extend(children_hashes)
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
             why = _strerror(err)
@@ -2337,7 +2337,7 @@ class FTPHandler(AsyncChat):
                 hasHash = self.run_as_current_user(self.ca.has_chunk, hash_arr[x])
                 if not hasHash:
                     #nhash_arr += hash_arr[x]
-                    nhash_arr.append(hash_arr[x])
+                    nhash_arr.extend(hash_arr[x])
             except (EnvironmentError, FilesystemError):
                 err = sys.exc_info()[1]
                 why = _strerror(err)

@@ -36,8 +36,8 @@ def getrecipe(ftp, filename):
                 return None
     
             for x in range(0, len(recipe) / 40):
-                #strs += recipe[x * 40 : x * 40 + 40],
-                strs.append(recipe[x * 40 : x * 40 + 40],)
+                hash = recipe[x * 40 : x * 40 + 40],
+                strs.extend(hash)
             print "Received a recipe of the file :", filename
             return strs
 
@@ -60,7 +60,7 @@ def collectchunks(ftp, ca, hashes, outfile=None):
         if not hasLocal:
             if hashes[x] not in req_hashes:
                 print "read from server : ", hashes[x]
-                req_hashes.append(hashes[x])
+                req_hashes.extend(hashes[x])
                 if req_hash_string != "":
                     req_hash_string += ","
                 req_hash_string += hashes[x]
@@ -96,7 +96,7 @@ def getserverhashes(ftp, ca, filename):
         hash = ''.join(x),
         if hash not in strs:
             #strs += ''.join(x),
-            strs.append(''.join(x),)
+            strs.extend(hash)
 
     req_hashes = ""
     for x in range(0, len(strs)):
@@ -117,7 +117,8 @@ def getserverhashes(ftp, ca, filename):
     
             for x in range(0, len(recipe) / 40):
                 #strs += recipe[x * 40 : x * 40 + 40],
-		strs.append(recipe[x * 40 : x * 40 + 40],)
+                hash = recipe[x * 40 : x * 40 + 40],
+                strs.extend(hash)
             print "Received server hashes of the file :", filename
             return strs
     return None
@@ -155,7 +156,8 @@ def buildfile(ftp, ca, file):
     strs = []
     for x in recipe:
         #strs += ''.join(x),
-        strs.append(''.join(x),)
+        hash = ''.join(x),
+        strs.extend(hash)
 
     req_hashes = ""
     for x in range(0, len(strs)):
@@ -178,52 +180,56 @@ def collectmerkletree(ftp, ca, file, height, roothash):
     build_leaf = {}
     
     if not ca.has_merkle_hash(roothash):
-        hashes += roothash,
+        #hashes += roothash,
+        hash = roothash,
+        hashes.extend(hash)
     
-    for depth in range(0, height):
-        print "depth :", depth
-        #print "request hash :", len(hashes), hashes
-        req_hashes = ""
-        if len(hashes) == 0:
-            break
+        for depth in range(0, height):
+            print "depth :", depth
+            print "request hash :", len(hashes), hashes
+            req_hashes = ""
+            if len(hashes) == 0:
+                break
 
-        for x in range(0, len(hashes)):
-            if req_hashes != "":
-                req_hashes += ","
-            req_hashes += hashes[x]
+            for x in range(0, len(hashes)):
+                if req_hashes != "":
+                    req_hashes += ","
+                req_hashes += hashes[x]
 
-        ret = ftp.sendcmd("MCRT " + file + "," + req_hashes)
-        retarr = ret.split(" ")
-        if len(retarr) == 2:
-            if retarr[0] == "200":
-                recipe = retarr[1]
-                strs = []
-                if len(recipe) % 40 != 0:
-                    print "length of recipe is not correct"
+            ret = ftp.sendcmd("MCRT " + file + "," + req_hashes)
+            retarr = ret.split(" ")
+            if len(retarr) == 2:
+                if retarr[0] == "200":
+                    recipe = retarr[1]
+                    strs = []
+                    if len(recipe) % 40 != 0:
+                        print "length of recipe is not correct"
+                        return None
+
+                    for x in range(0, len(recipe) / 40):
+                        merkle_node = recipe[x * 40 : x * 40 + 40]
+                        #strs += merkle_node,
+                        hash = merkle_node,
+                        strs.extend(hash)
+                    #print "received hash :", len(strs), strs
+
+                    for x in range(0, len(hashes)):
+                        build_leaf[hashes[x]] = strs[x*ca.get_merkle_base() : x*ca.get_merkle_base()+ca.get_merkle_base()]
+                    
+                    print "Received server hashes of the file :", file, "depth :", depth
+                    hashes = []
+                    for x in range(0, len(strs)):
+                        #check local merkle tree
+                        if not ca.has_merkle_hash(strs[x]):
+                            #hashes += strs[x],
+                            hash = strs[x],
+                            hashes.extend(hash)
+                else:
+                    print "error while searching children"
                     return None
-
-                for x in range(0, len(recipe) / 40):
-                    merkle_node = recipe[x * 40 : x * 40 + 40]
-                    #strs += merkle_node,
-                    strs.append(merkle_node,)
-                #print "received hash :", len(strs), strs
-
-                for x in range(0, len(hashes)):
-                    build_leaf[hashes[x]] = strs[x*ca.get_merkle_base() : x*ca.get_merkle_base()+ca.get_merkle_base()]
-                
-                print "Received server hashes of the file :", file, "depth :", depth
-                hashes = []
-                for x in range(0, len(strs)):
-                    #check local merkle tree
-                    if not ca.has_merkle_hash(strs[x]):
-                        #hashes += strs[x],
-                        hashes.append(strs[x],)
             else:
                 print "error while searching children"
                 return None
-        else:
-            print "error while searching children"
-            return None
 
     leaf_recipe = build_leaf_recipe(ca, roothash, build_leaf, height)
     return leaf_recipe
@@ -248,6 +254,6 @@ def __build_recipe_from_merkle(ca, hash, merkle_tree, height):
         for x in range(0, len(children)):
             child = children[x]
             #ret_hashes += __build_recipe_from_merkle(ca, child, merkle_tree, height -1)
-            ret_hashes.append(__build_recipe_from_merkle(ca, child, merkle_tree, height -1))
+            ret_hashes.extend(__build_recipe_from_merkle(ca, child, merkle_tree, height -1))
 
     return ret_hashes
