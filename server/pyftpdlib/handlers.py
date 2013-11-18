@@ -1312,7 +1312,7 @@ class FTPHandler(AsyncChat):
         # such cases
         #buflimit = 2048
         #iychoi fix : buflimit increased
-        buflimit = 204800
+        buflimit = 20480000
         if self._in_buffer_len > buflimit:
             self.respond_w_warning('500 Command too long.')
             self._in_buffer = []
