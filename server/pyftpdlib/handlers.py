@@ -2242,8 +2242,10 @@ class FTPHandler(AsyncChat):
         children = []
         try:
             path = self.run_as_current_user(self.fs.ftp2fs, file)
+            print "get merkle children"
             children_hashes = self.run_as_current_user(self.ca.get_merkle_children, path, hash_arr)
             #children += children_hashes
+            print "put merkle children"
             children.extend(children_hashes)
         except (EnvironmentError, FilesystemError):
             err = sys.exc_info()[1]
@@ -2251,6 +2253,7 @@ class FTPHandler(AsyncChat):
             self.respond('550 %s.' % why)
             return
 
+            print "returning merkle children"
         children_string = ''.join(children)
         self.respond('200 ' + children_string)
         return len(children)

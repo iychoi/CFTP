@@ -31,6 +31,7 @@ def check(ca, ftp, filename):
         if hashes == None:
 	        print "file not exist"
         else:
+            print "test start!"
             cftp_client.testcollectchunks(ftp, ca, hashes, None)
             print "check succeed"
 

@@ -50,17 +50,20 @@ def testcollectchunks(ftp, ca, hashes, outfile=None):
         outfile = sys.stdout
     
     chunks_num = len(hashes)
-    req_hashes = []
+    req_hashes = {}
+    have_req_hashes = False
     req_hash_string = ""
     
     # check server chunks
+    print "chunks num :", chunks_num
     for x in range(0, chunks_num):
         hash = hashes[x]
         hasLocal = ca.has_chunk(hash)
         if not hasLocal:
             if hash not in req_hashes:
                 #print "read from server : ", hash
-                req_hashes.append(hash)
+                req_hashes[hash] = 1
+                have_req_hashes = True
                 if req_hash_string != "":
                     req_hash_string += ","
                 req_hash_string += hash
@@ -73,7 +76,8 @@ def collectchunks(ftp, ca, hashes, outfile=None):
         outfile = sys.stdout
     
     chunks_num = len(hashes)
-    req_hashes = []
+    req_hashes = {}
+    have_req_hashes = False
     req_hash_string = ""
     temp_server_chunk_file = '/tmp/server_chunks'
     
@@ -84,13 +88,14 @@ def collectchunks(ftp, ca, hashes, outfile=None):
         if not hasLocal:
             if hash not in req_hashes:
                 #print "read from server : ", hash
-                req_hashes.append(hash)
+                req_hashes[hash] = 1
+                have_req_hashes = True
                 if req_hash_string != "":
                     req_hash_string += ","
                 req_hash_string += hash
     
     # request server chunks and store it as local temporary file
-    if len(req_hashes) != 0:
+    if have_req_hashes:
         f = open(temp_server_chunk_file, 'wb')
         ftp.retrbinary("HRTR " + req_hash_string, f.write)
         f.close()
@@ -105,7 +110,7 @@ def collectchunks(ftp, ca, hashes, outfile=None):
             return False
         outfile.write(chunk)
 
-    if len(req_hashes) != 0:
+    if have_req_hashes:
         f.close()
         os.remove(temp_server_chunk_file)
         ca.validate_cache(temp_server_chunk_file)
@@ -220,7 +225,9 @@ def collectmerkletree(ftp, ca, file, height, roothash):
                     req_hashes += ","
                 req_hashes += hashes[x]
 
+            print "sending MCRT"
             ret = ftp.sendcmd("MCRT " + file + "," + req_hashes)
+            print "received MCRT results"
             retarr = ret.split(" ")
             if len(retarr) == 2:
                 if retarr[0] == "200":
@@ -230,6 +237,7 @@ def collectmerkletree(ftp, ca, file, height, roothash):
                         print "length of recipe is not correct"
                         return None
 
+                    print "prepare hashes"
                     for x in range(0, len(recipe) / 40):
                         merkle_node = recipe[x * 40 : x * 40 + 40]
                         #strs += merkle_node,
@@ -237,6 +245,7 @@ def collectmerkletree(ftp, ca, file, height, roothash):
                         strs.extend(hash)
                     #print "received hash :", len(strs), strs
 
+                    print "build merkle node"
                     for x in range(0, len(hashes)):
                         build_leaf[hashes[x]] = strs[x*ca.get_merkle_base() : x*ca.get_merkle_base()+ca.get_merkle_base()]
                     
@@ -271,10 +280,8 @@ def __build_recipe_from_merkle(ca, hash, merkle_tree, height):
         return [hash]
 
     if ca.has_merkle_hash(hash):
-        print "get leaves", hash
         return ca.get_merkle_leaves(hash)
     else:
-        print "get children", hash
         children = merkle_tree[hash]
         ret_hashes = []
         for x in range(0, len(children)):
