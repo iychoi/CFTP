@@ -43,6 +43,29 @@ def getrecipe(ftp, filename):
 
     return None
 
+def testcollectchunks(ftp, ca, hashes, outfile=None):
+    ca.validate_all_cache()
+    # get chunk data from hash
+    if outfile is None:
+        outfile = sys.stdout
+    
+    chunks_num = len(hashes)
+    req_hashes = []
+    req_hash_string = ""
+    
+    # check server chunks
+    for x in range(0, chunks_num):
+        hash = hashes[x]
+        hasLocal = ca.has_chunk(hash)
+        if not hasLocal:
+            if hash not in req_hashes:
+                #print "read from server : ", hash
+                req_hashes.append(hash)
+                if req_hash_string != "":
+                    req_hash_string += ","
+                req_hash_string += hash
+
+
 def collectchunks(ftp, ca, hashes, outfile=None):
     ca.validate_all_cache()
     # get chunk data from hash
@@ -60,7 +83,7 @@ def collectchunks(ftp, ca, hashes, outfile=None):
         hasLocal = ca.has_chunk(hash)
         if not hasLocal:
             if hash not in req_hashes:
-                print "read from server : ", hash
+                #print "read from server : ", hash
                 req_hashes.append(hash)
                 if req_hash_string != "":
                     req_hash_string += ","
@@ -180,7 +203,6 @@ def getmerkleinfo(ftp, filename):
 def collectmerkletree(ftp, ca, file, height, roothash):
     hashes = []
     build_leaf = {}
-    
     if not ca.has_merkle_hash(roothash):
         #hashes += roothash,
         hash = roothash,
@@ -249,8 +271,10 @@ def __build_recipe_from_merkle(ca, hash, merkle_tree, height):
         return [hash]
 
     if ca.has_merkle_hash(hash):
+        print "get leaves", hash
         return ca.get_merkle_leaves(hash)
     else:
+        print "get children", hash
         children = merkle_tree[hash]
         ret_hashes = []
         for x in range(0, len(children)):
