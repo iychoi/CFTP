@@ -149,14 +149,19 @@ class Chunk_Handler (object):
         if row != None:
             merkle_tree_list = json.loads(row[5])
           
-            for parent in parents:
-                current_level_index = 0;
-                for current_level in merkle_tree_list:
+            parent = parents[0]
+            current_level_index = 0;
+            for current_level in merkle_tree_list:
                     if parent in current_level and current_level_index != len(merkle_tree_list) - 1:
-                        next_level = merkle_tree_list[current_level_index + 1]
-                        index_of_parent = current_level.index(parent)
-                        l.extend(next_level[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE])
+                        break
                     current_level_index += 1
+                    
+            if current_level_index != len(merkle_tree_list) - 1:
+                current_level = merkle_tree_list[current_level_index]
+                next_level = merkle_tree_list[current_level_index + 1]
+                for parent in parents:
+                    index_of_parent = current_level.index(parent)
+                    l.extend(next_level[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE])
         return l
 
     def get_merkle_root(self, filepath):
