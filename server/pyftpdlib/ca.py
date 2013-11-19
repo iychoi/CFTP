@@ -23,11 +23,13 @@ class Chunk_Handler (object):
     
     def build_hash_cache(self):
         self.hash_cache = set()
-        self.cursor.execute('SELECT hashes FROM ' + self.table_name)
+        self.merkle_cache = []
+        self.cursor.execute('SELECT hashes, merkle_hashes FROM ' + self.table_name)
         rows = self.cursor.fetchall()
         if rows != None:
             for row in rows:
                 self.hash_cache.update(row[0].split(':'))
+                self.merkle_cache.extend(json.loads(row[1]))
                 
     def get_chunk(self, chunk_hash):
         chunk = None
@@ -128,6 +130,7 @@ class Chunk_Handler (object):
                                     (filepath, ":".join(l), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath), json.dumps(merkle_hashes)))
                 self.db.commit()
                 self.hash_cache.update(l)
+                self.merkle_cache.extend(merkle_hashes)
             finally:
                 f.close
         
@@ -160,13 +163,9 @@ class Chunk_Handler (object):
         return None
 
     def has_merkle_hash(self, merkle_hash):
-        self.cursor.execute('SELECT * FROM ' + self.table_name + 
-                            ' WHERE merkle_hashes like ?',
-                             ('%"' + merkle_hash + '"%',))
-        row = self.cursor.fetchone()
-
-        if row != None:
-            return True
+        for merkle_list in self.merkle_cache:
+            if merkle_hash in merkle_list:
+                return True
         return False
         
     def get_merkle_leaves(self, parent_merkle_hash):
