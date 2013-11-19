@@ -22,16 +22,18 @@ class Chunk_Handler (object):
         self.lastread_file = None
     
     def build_hash_cache(self):
-        self.hash_cache = set()
-        self.merkle_cache = set()
+        self.hash_cache = {}
+        self.merkle_cache = {}
         self.cursor.execute('SELECT hashes, merkle_hashes FROM ' + self.table_name)
         rows = self.cursor.fetchall()
         if rows != None:
             for row in rows:
-                self.hash_cache.update(row[0].split(':'))
+                for item in row[0].split(':'):
+                    self.hash_cache[item] = 1;
                 mlist = json.loads(row[1])
-                for i in mlist:
-                    self.merkle_cache.update(i)
+                for sublist in mlist:
+                    for item in sublist:
+                        self.merkle_cache[item] = 1;
                 
     def get_chunk(self, chunk_hash):
         chunk = None
@@ -131,9 +133,11 @@ class Chunk_Handler (object):
                                     '(filepath, hashes, last_modified, file_size, merkle_hashes) VALUES (?,?,?,?,?)',
                                     (filepath, ":".join(l), time.ctime(os.path.getmtime(filepath)), os.path.getsize(filepath), json.dumps(merkle_hashes)))
                 self.db.commit()
-                self.hash_cache.update(l)
-                for i in merkle_hashes:
-                    self.merkle_cache.update(i)
+                for item in l:
+                    self.hash_cache[item] = 1
+                for sublist in merkle_hashes:
+                    for item in sublist:
+                        self.merkle_cache[item] = 1
             finally:
                 f.close
         
