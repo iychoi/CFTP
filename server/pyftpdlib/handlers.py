@@ -511,7 +511,7 @@ class DTPHandler(AsyncChat):
      - (int) ac_out_buffer_size: outgoing data buffer size (defaults 65536)
     """
 
-    timeout = 300
+    timeout = 1200
     ac_in_buffer_size = 65536
     ac_out_buffer_size = 65536
 
@@ -1120,7 +1120,7 @@ class FTPHandler(AsyncChat):
     proto_cmds = proto_cmds
 
     # session attributes (explained in the docstring)
-    timeout = 300
+    timeout = 1200
     banner = "pyftpdlib %s ready." % __ver__
     max_login_attempts = 3
     permit_foreign_addresses = False
