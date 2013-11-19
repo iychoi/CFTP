@@ -179,10 +179,19 @@ class Chunk_Handler (object):
         current_level_merkle_hashes = [parent_merkle_hash, ]
         
         if row != None:
-            filepath = row[1]
             
+            merkle_tree_list = json.loads(row[5])
+
             while True:
-                next_level_merkle_hashes = self.get_merkle_children(filepath, current_level_merkle_hashes)
+                l = []
+                for parent in current_level_merkle_hashes:
+                    for current_level in merkle_tree_list:
+                        if parent in current_level and merkle_tree_list.index(current_level) != len(merkle_tree_list) - 1:
+                            next_level = merkle_tree_list[merkle_tree_list.index(current_level) + 1]
+                            index_of_parent = current_level.index(parent)
+                            l.extend(next_level[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE])
+                
+                next_level_merkle_hashes = l
                 if not next_level_merkle_hashes:
                     break
                 else:
