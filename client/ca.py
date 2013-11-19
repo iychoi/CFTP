@@ -197,11 +197,13 @@ class Chunk_Handler (object):
             while True:
                 l = []
                 for parent in current_level_merkle_hashes:
+                    current_level_index = 0
                     for current_level in merkle_tree_list:
-                        if parent in current_level and merkle_tree_list.index(current_level) != len(merkle_tree_list) - 1:
-                            next_level = merkle_tree_list[merkle_tree_list.index(current_level) + 1]
+                        if parent in current_level and current_level_index != len(merkle_tree_list) - 1:
+                            next_level = merkle_tree_list[current_level_index + 1]
                             index_of_parent = current_level.index(parent)
                             l.extend(next_level[index_of_parent * MERKLE_LOG_BASE: index_of_parent * MERKLE_LOG_BASE + MERKLE_LOG_BASE])
+                    current_level_index += 1
                 
                 next_level_merkle_hashes = l
                 if not next_level_merkle_hashes:
